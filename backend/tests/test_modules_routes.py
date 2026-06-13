@@ -274,3 +274,25 @@ def test_generate_passes_existing_modules_context(client):
     # Second call should have received context with existing modules
     second_call_prompt = mock_gen.call_args_list[1][0][0]
     assert "Existing modules" in second_call_prompt
+
+
+def test_generate_returns_question_when_clarification_needed(client):
+    with patch(
+        "src.services.orchestrator.llm.generate",
+        return_value='{"question": "How many meals per day?"}',
+    ):
+        resp = client.post("/api/modules/generate", json={"prompt": "track food"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["module"] is None
+    assert "meals" in body["question"].lower()
+
+
+def test_generate_with_combined_prompt_produces_module(client):
+    with patch("src.services.orchestrator.llm.generate", return_value=VALID_RAW):
+        resp = client.post(
+            "/api/modules/generate",
+            json={"prompt": "track food — 3 meals per day"},
+        )
+    assert resp.status_code == 200
+    assert resp.json()["module"] is not None

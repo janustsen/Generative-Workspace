@@ -21,8 +21,8 @@ function InsightsButton({
     setLoading(true);
     setError(null);
     try {
-      const { module } = await api.workspaceInsights(activePageId);
-      onNewModule(module);
+      const result = await api.workspaceInsights(activePageId);
+      if (result.module) onNewModule(result.module);
     } catch (err) {
       const msg =
         err instanceof ApiError && err.refusal

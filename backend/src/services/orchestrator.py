@@ -10,7 +10,7 @@ import json
 from pydantic import ValidationError
 
 from src import llm
-from src.schema import ModuleConfig, RefusalError
+from src.schema import ClarifyingQuestion, ModuleConfig, RefusalError
 
 _COMPONENT_DOCS = """Available component types (use exactly these "type" values):
 - text_input   — free-text field.   Fields: id, label, type, placeholder?
@@ -50,8 +50,13 @@ Rules:
 4. If existing modules are listed, prefer metric/progress_bar cross-module bindings where
    they add real value (e.g. a dashboard that aggregates workout totals).
 5. Prefer 3-6 components unless the request clearly needs more.
-6. Do not ask questions. Do not narrate. Output the JSON object and nothing else.
-7. If the request is illicit or structurally impossible, output exactly:
+6. If the request is too vague to produce a useful module — AND one short question would
+   unlock it — output exactly: {{ "question": "<one short, specific question>" }}
+   Only do this when the answer genuinely changes the module structure (e.g. you cannot
+   pick sensible fields, units, or ranges without knowing). If you can make a reasonable
+   default, do so instead.
+7. Do not narrate. Output the JSON object and nothing else.
+8. If the request is illicit or structurally impossible, output exactly:
    {{ "refusal": "<one-sentence reason>" }}
 """
 
@@ -134,6 +139,8 @@ def _parse_module_config(raw: str) -> ModuleConfig:
         raise RefusalError(f"The model returned non-JSON output: {e.msg}") from e
     if isinstance(data, dict) and "refusal" in data:
         raise RefusalError(str(data["refusal"]))
+    if isinstance(data, dict) and "question" in data and len(data) == 1:
+        raise ClarifyingQuestion(str(data["question"]))
     try:
         return ModuleConfig.model_validate(data)
     except ValidationError as e:

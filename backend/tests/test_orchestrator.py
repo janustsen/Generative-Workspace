@@ -175,3 +175,21 @@ def test_metric_component_roundtrips():
     reloaded = ModuleConfig.model_validate_json(config.model_dump_json())
     assert reloaded.components[0].type == "metric"
     assert reloaded.components[0].formula == "sum"  # type: ignore[union-attr]
+
+
+# --- clarifying question tests ---
+
+def test_generate_module_raises_clarifying_question():
+    from src.schema import ClarifyingQuestion
+    with _fake_llm('{"question": "How many meals per day do you track?"}'):
+        with pytest.raises(ClarifyingQuestion) as exc:
+            orchestrator.generate_module("track my food")
+    assert "meals" in exc.value.question.lower()
+
+
+def test_generate_module_question_only_when_single_key():
+    # A dict with "question" plus other keys is NOT a clarifying question —
+    # it falls through to ModuleConfig validation and is accepted as a valid module.
+    with _fake_llm('{"question": "How many?", "title": "Tracker", "components": []}'):
+        config = orchestrator.generate_module("track something")
+    assert config.title == "Tracker"

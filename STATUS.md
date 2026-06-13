@@ -22,7 +22,7 @@ prompt ──▶ Gemini (orchestrator) ──▶ ModuleConfig (JSON) ──▶ t
 - **Backend:** Python 3.12 · FastAPI · SQLite (stdlib) · `google-genai`
 - **Frontend:** Next.js 16 · React 19 · TypeScript · Tailwind v4
 - **Model:** `gemini-flash-latest` (key in `backend/.env`, gitignored)
-- **Quality:** 82 backend tests passing, 2 live tests opt-in (`GEMINI_LIVE=1`)
+- **Quality:** 86 backend tests passing, 2 live tests opt-in (`GEMINI_LIVE=1`)
 
 ---
 
@@ -68,7 +68,7 @@ prompt ──▶ Gemini (orchestrator) ──▶ ModuleConfig (JSON) ──▶ t
 |---|---|---|---|
 | 1 | **The Canvas** | ✅ Done | Infinite pan/zoom, dotted grid, modules as first-class objects, drag + resize, reset-view |
 | 2 | **Modules (atomic unit)** | ✅ Done | Card anatomy, collapse-to-summary, skeleton-first creation |
-| 3 | **Multi-modal input** | 🟡 Partial | Text ✅. Voice / document+image upload / drawing / ramble-to-modules ❌ |
+| 3 | **Multi-modal input** | 🟡 Partial | Text ✅. Inline clarifying question step ✅. Voice / document+image upload / drawing / ramble-to-modules ❌ |
 | 4 | **Orchestrator + component library** | ✅ Done | Config-not-code; 6 primitives (library is intentionally extensible) |
 | 5 | **Module intelligence** (cross-module rules, AI extrapolation, external data binding) | ✅ Done (core) | `metric` component aggregates values across modules; cross-module `progress_bar` binding; AI receives full module context on generate/refine; "Workspace insights" synthesizes a dashboard module. External data binding ❌ |
 | 6 | **Pages & infinite depth** | ✅ Done (core) | Named pages (Main + user-created), per-page canvases, module scoping by page_id. Nesting/embedding ❌ |

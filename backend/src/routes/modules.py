@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 
 from src import db
 from src.schema import (
+    ClarifyingQuestion,
     GenerateRequest,
     GenerateResponse,
     LLMError,
@@ -38,6 +39,8 @@ async def generate_module(
     existing = [m.config for m in db.list_modules(sid)]
     try:
         config = orchestrator.generate_module(prompt, existing_modules=existing)
+    except ClarifyingQuestion as e:
+        return GenerateResponse(question=e.question)
     except RefusalError as e:
         raise HTTPException(status_code=422, detail={"refusal": e.reason})
     except LLMError:

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import type { StoredModule } from "@/lib/types";
 
@@ -16,8 +16,18 @@ export function PromptBar({ onModule, activePageId, refineTarget, onRefineModule
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Clarifying question state: when the AI needs one more answer before generating.
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  const originalPromptRef = useRef<string>("");
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const isRefining = Boolean(refineTarget);
+
+  const clearClarification = () => {
+    setPendingQuestion(null);
+    originalPromptRef.current = "";
+    setPrompt("");
+  };
 
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -26,14 +36,28 @@ export function PromptBar({ onModule, activePageId, refineTarget, onRefineModule
     setLoading(true);
     setError(null);
     try {
-      if (refineTarget && onRefineModule) {
+      if (isRefining && refineTarget && onRefineModule) {
         const updated = await api.refineModule(refineTarget.id, v);
         onRefineModule(updated);
+        setPrompt("");
       } else {
-        const { module } = await api.generateModule(v, activePageId);
-        onModule(module);
+        // If we're answering a clarifying question, combine original + answer.
+        const fullPrompt = pendingQuestion
+          ? `${originalPromptRef.current} — ${v}`
+          : v;
+        const result = await api.generateModule(fullPrompt, activePageId);
+        if (result.question) {
+          // AI needs clarification — enter follow-up mode.
+          if (!pendingQuestion) originalPromptRef.current = v;
+          setPendingQuestion(result.question);
+          setPrompt("");
+          setTimeout(() => inputRef.current?.focus(), 0);
+        } else if (result.module) {
+          onModule(result.module);
+          setPrompt("");
+          clearClarification();
+        }
       }
-      setPrompt("");
     } catch (err) {
       if (err instanceof ApiError && err.refusal) {
         setError(err.refusal);
@@ -47,12 +71,34 @@ export function PromptBar({ onModule, activePageId, refineTarget, onRefineModule
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      if (pendingQuestion) clearClarification();
+      else if (isRefining) onClearRefine?.();
+    }
+  };
+
+  const placeholder = pendingQuestion
+    ? `${pendingQuestion}`
+    : isRefining
+      ? "Describe what to change — e.g. add a rest day checkbox"
+      : "Describe what you want to organize — e.g. track my workouts";
+
+  const buttonLabel = loading
+    ? (isRefining ? "Refining…" : "Generating…")
+    : isRefining
+      ? "Refine"
+      : pendingQuestion
+        ? "Answer"
+        : "Generate";
+
   return (
     <form
       onSubmit={submit}
       className="absolute left-1/2 -translate-x-1/2 bottom-6 w-[min(720px,calc(100%-2rem))] z-10"
     >
       <div className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur shadow-2xl shadow-black/40 overflow-hidden">
+
         {isRefining && refineTarget && (
           <div className="flex items-center gap-2 px-4 pt-2.5 pb-0">
             <span className="text-[10px] uppercase tracking-wide text-[var(--muted)] font-mono">Refining</span>
@@ -69,16 +115,34 @@ export function PromptBar({ onModule, activePageId, refineTarget, onRefineModule
             </button>
           </div>
         )}
+
+        {pendingQuestion && !isRefining && (
+          <div className="flex items-start gap-2 px-4 pt-2.5 pb-0">
+            <span className="text-[10px] uppercase tracking-wide text-[var(--muted)] font-mono shrink-0 mt-0.5">
+              One question
+            </span>
+            <span className="text-xs text-[var(--foreground)] flex-1">
+              {pendingQuestion}
+            </span>
+            <button
+              type="button"
+              onClick={clearClarification}
+              className="text-[var(--muted)] hover:text-[var(--foreground)] transition text-xs shrink-0"
+              aria-label="Cancel"
+            >
+              ✕ cancel
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 px-4 py-3">
           <input
+            ref={inputRef}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={handleKeyDown}
             disabled={loading}
-            placeholder={
-              isRefining
-                ? "Describe what to change — e.g. add a rest day checkbox"
-                : "Describe what you want to organize — e.g. track my workouts"
-            }
+            placeholder={placeholder}
             className="flex-1 bg-transparent text-sm placeholder:text-[var(--muted)] focus:outline-none disabled:opacity-50"
             autoFocus
           />
@@ -87,9 +151,10 @@ export function PromptBar({ onModule, activePageId, refineTarget, onRefineModule
             disabled={!prompt.trim() || loading}
             className="rounded-md bg-[var(--accent)] text-[var(--accent-fg)] px-3 py-1.5 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110 transition shrink-0"
           >
-            {loading ? (isRefining ? "Refining…" : "Generating…") : isRefining ? "Refine" : "Generate"}
+            {buttonLabel}
           </button>
         </div>
+
         {error && (
           <div className="px-4 pb-3 -mt-1">
             <div className="text-xs text-[var(--danger)]">{error}</div>

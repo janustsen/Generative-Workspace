@@ -120,7 +120,8 @@ class RefineRequest(BaseModel):
 
 
 class GenerateResponse(BaseModel):
-    module: StoredModule
+    module: StoredModule | None = None
+    question: str | None = None  # set when the orchestrator needs clarification
 
 
 class PatchRequest(BaseModel):
@@ -133,6 +134,14 @@ class RefusalError(Exception):
     def __init__(self, reason: str):
         super().__init__(reason)
         self.reason = reason
+
+
+class ClarifyingQuestion(Exception):
+    """The orchestrator needs one more piece of info before generating."""
+
+    def __init__(self, question: str):
+        super().__init__(question)
+        self.question = question
 
 
 class LLMError(Exception):

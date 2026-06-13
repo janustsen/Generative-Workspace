@@ -44,7 +44,8 @@ export class ApiError extends Error {
 }
 
 export interface GenerateResponse {
-  module: StoredModule;
+  module?: StoredModule | null;
+  question?: string | null;
 }
 
 export const api = {
