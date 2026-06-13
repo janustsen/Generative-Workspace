@@ -61,4 +61,6 @@ export const api = {
     }),
   deleteModule: (id: string) =>
     request<void>(`/api/modules/${id}`, { method: "DELETE" }),
+  undoModule: (id: string) =>
+    request<StoredModule>(`/api/modules/${id}/undo`, { method: "POST" }),
 };

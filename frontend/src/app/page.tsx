@@ -50,6 +50,16 @@ export default function Home() {
     });
   }, []);
 
+  const handleUndoModule = useCallback(async (id: string) => {
+    try {
+      const reverted = await api.undoModule(id);
+      setModules((prev) => prev.map((m) => (m.id === id ? reverted : m)));
+    } catch (err) {
+      // 409 = nothing to undo; surface nothing noisy, just log.
+      console.warn("Undo unavailable", err);
+    }
+  }, []);
+
   return (
     <main className="flex-1 flex flex-col h-screen relative">
       <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-4 pointer-events-none">
@@ -68,6 +78,7 @@ export default function Home() {
         modules={modules}
         onModuleChange={handleModuleChange}
         onModuleDelete={handleDeleteModule}
+        onModuleUndo={handleUndoModule}
       />
       <PromptBar onModule={handleNewModule} />
     </main>

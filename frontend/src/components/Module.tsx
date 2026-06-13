@@ -21,6 +21,7 @@ interface Props {
   module: StoredModule;
   onChange: (updated: StoredModule) => void;
   onDelete: (id: string) => void;
+  onUndo: (id: string) => void;
   onDragStart: (e: React.PointerEvent, moduleId: string) => void;
 }
 
@@ -30,7 +31,7 @@ interface Draft {
   summary_component_id?: string | null;
 }
 
-export function Module({ module, onChange, onDelete, onDragStart }: Props) {
+export function Module({ module, onChange, onDelete, onUndo, onDragStart }: Props) {
   const [state, setState] = useState<Record<string, unknown>>(
     module.config.state ?? {},
   );
@@ -281,6 +282,15 @@ export function Module({ module, onChange, onDelete, onDragStart }: Props) {
           </h3>
         )}
 
+        <button
+          type="button"
+          onClick={() => onUndo(module.id)}
+          className={iconBtn}
+          aria-label="Undo last change"
+          title="Undo last change"
+        >
+          ↶
+        </button>
         <button
           type="button"
           onClick={() => (editing ? exitEdit() : enterEdit())}
