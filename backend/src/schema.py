@@ -80,6 +80,11 @@ class StoredModule(BaseModel):
     updated_at: str
 
 
+class ModuleVersion(BaseModel):
+    config: ModuleConfig
+    created_at: str
+
+
 class GenerateRequest(BaseModel):
     prompt: str
 

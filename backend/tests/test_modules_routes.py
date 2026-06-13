@@ -118,3 +118,34 @@ def test_delete_is_scoped_to_session(client, second_client):
     # A different session must not be able to delete it.
     assert second_client.delete(f"/api/modules/{module_id}").status_code == 404
     assert len(client.get("/api/modules").json()) == 1
+
+
+def test_undo_endpoint_reverts_module(client):
+    with patch("src.services.orchestrator.llm.generate", return_value=VALID_RAW):
+        created = client.post("/api/modules/generate", json={"prompt": "track my workouts"}).json()
+    module_id = created["module"]["id"]
+    renamed = ModuleConfig(title="Renamed", components=[TextInput(id="exercise", label="Exercise")])
+    client.patch(f"/api/modules/{module_id}", json={"config": renamed.model_dump()})
+
+    resp = client.post(f"/api/modules/{module_id}/undo")
+    assert resp.status_code == 200
+    assert resp.json()["config"]["title"] == "Workout Log"
+
+
+def test_undo_with_nothing_to_undo_returns_409(client):
+    with patch("src.services.orchestrator.llm.generate", return_value=VALID_RAW):
+        created = client.post("/api/modules/generate", json={"prompt": "track my workouts"}).json()
+    module_id = created["module"]["id"]
+    resp = client.post(f"/api/modules/{module_id}/undo")
+    assert resp.status_code == 409
+
+
+def test_history_endpoint_lists_versions(client):
+    with patch("src.services.orchestrator.llm.generate", return_value=VALID_RAW):
+        created = client.post("/api/modules/generate", json={"prompt": "track my workouts"}).json()
+    module_id = created["module"]["id"]
+    renamed = ModuleConfig(title="Renamed", components=[TextInput(id="exercise", label="Exercise")])
+    client.patch(f"/api/modules/{module_id}", json={"config": renamed.model_dump()})
+
+    history = client.get(f"/api/modules/{module_id}/history").json()
+    assert [v["config"]["title"] for v in history] == ["Workout Log", "Renamed"]

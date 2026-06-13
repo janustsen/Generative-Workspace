@@ -5,6 +5,7 @@ from src.schema import (
     GenerateRequest,
     GenerateResponse,
     LLMError,
+    ModuleVersion,
     PatchRequest,
     RefusalError,
     StoredModule,
@@ -60,3 +61,18 @@ async def delete_module(module_id: str, request: Request) -> None:
     sid = _session_id(request)
     if not db.delete_module(sid, module_id):
         raise HTTPException(status_code=404, detail="Module not found")
+
+
+@router.post("/modules/{module_id}/undo", response_model=StoredModule)
+async def undo_module(module_id: str, request: Request) -> StoredModule:
+    sid = _session_id(request)
+    reverted = db.undo_module(sid, module_id)
+    if reverted is None:
+        raise HTTPException(status_code=409, detail="Nothing to undo")
+    return reverted
+
+
+@router.get("/modules/{module_id}/history", response_model=list[ModuleVersion])
+async def module_history(module_id: str, request: Request) -> list[ModuleVersion]:
+    sid = _session_id(request)
+    return db.list_versions(sid, module_id)
