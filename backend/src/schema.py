@@ -43,7 +43,8 @@ class Slider(ComponentBase):
 class ProgressBar(ComponentBase):
     type: Literal["progress_bar"] = "progress_bar"
     max: float = 100
-    bound_to: str | None = None
+    bound_to: str | None = None          # intra-module: reads state[bound_to]
+    source_module_id: str | None = None  # cross-module: reads that module's state[bound_to]
 
 
 class ListField(ComponentBase):
@@ -52,8 +53,16 @@ class ListField(ComponentBase):
     placeholder: str | None = None
 
 
+class Metric(ComponentBase):
+    """Read-only derived number aggregated across all session modules."""
+    type: Literal["metric"] = "metric"
+    formula: Literal["sum", "count", "avg", "max", "min"] = "sum"
+    source_component_id: str  # aggregate state[this] across modules
+    unit: str | None = None
+
+
 Component = Annotated[
-    Union[TextInput, NumberInput, Checkbox, Slider, ProgressBar, ListField],
+    Union[TextInput, NumberInput, Checkbox, Slider, ProgressBar, ListField, Metric],
     Field(discriminator="type"),
 ]
 

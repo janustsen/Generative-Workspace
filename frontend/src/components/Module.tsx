@@ -12,6 +12,7 @@ import { deriveSummary } from "@/lib/summary";
 import { COMPONENT_TYPES, makeComponent } from "@/lib/componentFactory";
 import { CheckboxField } from "./primitives/CheckboxField";
 import { ListFieldComponent } from "./primitives/ListFieldComponent";
+import { MetricField } from "./primitives/MetricField";
 import { NumberInputField } from "./primitives/NumberInputField";
 import { ProgressBarField } from "./primitives/ProgressBarField";
 import { SliderField } from "./primitives/SliderField";
@@ -19,6 +20,7 @@ import { TextInputField } from "./primitives/TextInputField";
 
 interface Props {
   module: StoredModule;
+  crossModuleValues: Record<string, number>;
   onChange: (updated: StoredModule) => void;
   onDelete: (id: string) => void;
   onUndo: (id: string) => void;
@@ -33,7 +35,7 @@ interface Draft {
   summary_component_id?: string | null;
 }
 
-export function Module({ module, onChange, onDelete, onUndo, onSelectForRefine, onDragStart, onResizeStart }: Props) {
+export function Module({ module, crossModuleValues, onChange, onDelete, onUndo, onSelectForRefine, onDragStart, onResizeStart }: Props) {
   const [state, setState] = useState<Record<string, unknown>>(
     module.config.state ?? {},
   );
@@ -168,9 +170,12 @@ export function Module({ module, onChange, onDelete, onUndo, onSelectForRefine, 
           />
         );
       case "progress_bar": {
-        const sourceVal = c.bound_to
-          ? (state[c.bound_to] as number) ?? 0
-          : (state[c.id] as number) ?? 0;
+        const sourceVal =
+          c.source_module_id && crossModuleValues[c.id] !== undefined
+            ? crossModuleValues[c.id]
+            : c.bound_to
+              ? (state[c.bound_to] as number) ?? 0
+              : (state[c.id] as number) ?? 0;
         return <ProgressBarField key={c.id} spec={c} value={sourceVal} />;
       }
       case "list":
@@ -182,50 +187,100 @@ export function Module({ module, onChange, onDelete, onUndo, onSelectForRefine, 
             onChange={(v) => setField(c.id, v)}
           />
         );
+      case "metric":
+        return (
+          <MetricField
+            key={c.id}
+            spec={c}
+            value={crossModuleValues[c.id] ?? 0}
+          />
+        );
     }
   };
 
-  const renderEditRow = (c: Component) => (
-    <div
-      key={c.id}
-      className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-2"
-    >
-      <span className="text-[10px] uppercase tracking-wide text-[var(--muted)] font-mono w-20 shrink-0">
-        {c.type.replace("_", " ")}
-      </span>
-      <input
-        value={c.label}
-        onChange={(e) =>
-          updateDraft((d) => ({
+  const removeBtn = (c: Component) => (
+    <button
+      type="button"
+      onClick={() =>
+        updateDraft(
+          (d) => ({
             ...d,
-            components: d.components.map((x) =>
-              x.id === c.id ? { ...x, label: e.target.value } : x,
-            ),
-          }))
-        }
-        className="flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-[var(--accent)]"
-        aria-label={`Rename ${c.label}`}
-      />
-      <button
-        type="button"
-        onClick={() =>
-          updateDraft(
-            (d) => ({
-              ...d,
-              components: d.components.filter((x) => x.id !== c.id),
-              summary_component_id:
-                d.summary_component_id === c.id ? null : d.summary_component_id,
-            }),
-            true,
-          )
-        }
-        className="text-[var(--muted)] hover:text-[var(--danger)] transition text-sm shrink-0"
-        aria-label={`Remove ${c.label}`}
-      >
-        Remove
-      </button>
-    </div>
+            components: d.components.filter((x) => x.id !== c.id),
+            summary_component_id:
+              d.summary_component_id === c.id ? null : d.summary_component_id,
+          }),
+          true,
+        )
+      }
+      className="text-[var(--muted)] hover:text-[var(--danger)] transition text-sm shrink-0"
+      aria-label={`Remove ${c.label}`}
+    >
+      Remove
+    </button>
   );
+
+  const renderEditRow = (c: Component) => {
+    if (c.type === "metric") {
+      return (
+        <div key={c.id} className="flex flex-col gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wide text-[var(--muted)] font-mono w-20 shrink-0">metric</span>
+            <input
+              value={c.label}
+              onChange={(e) => updateDraft((d) => ({ ...d, components: d.components.map((x) => x.id === c.id ? { ...x, label: e.target.value } : x) }))}
+              className="flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-[var(--accent)]"
+              aria-label="Metric label"
+            />
+            {removeBtn(c)}
+          </div>
+          <div className="flex items-center gap-2 pl-[5.5rem]">
+            <select
+              value={c.formula}
+              onChange={(e) => updateDraft((d) => ({ ...d, components: d.components.map((x) => x.id === c.id ? { ...x, formula: e.target.value as typeof c.formula } : x) }))}
+              className="bg-[var(--surface)] border border-[var(--border)] rounded text-xs px-1 py-0.5"
+            >
+              {(["sum", "count", "avg", "max", "min"] as const).map((f) => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+            </select>
+            <span className="text-[10px] text-[var(--muted)]">of field</span>
+            <input
+              value={c.source_component_id}
+              onChange={(e) => updateDraft((d) => ({ ...d, components: d.components.map((x) => x.id === c.id ? { ...x, source_component_id: e.target.value } : x) }))}
+              className="flex-1 bg-transparent text-xs focus:outline-none border-b border-transparent focus:border-[var(--accent)] font-mono"
+              placeholder="component_id"
+              aria-label="Source component id"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={c.id}
+        className="flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-2"
+      >
+        <span className="text-[10px] uppercase tracking-wide text-[var(--muted)] font-mono w-20 shrink-0">
+          {c.type.replace(/_/g, " ")}
+        </span>
+        <input
+          value={c.label}
+          onChange={(e) =>
+            updateDraft((d) => ({
+              ...d,
+              components: d.components.map((x) =>
+                x.id === c.id ? { ...x, label: e.target.value } : x,
+              ),
+            }))
+          }
+          className="flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-[var(--accent)]"
+          aria-label={`Rename ${c.label}`}
+        />
+        {removeBtn(c)}
+      </div>
+    );
+  };
 
   const addComponent = (type: ComponentType) =>
     updateDraft(

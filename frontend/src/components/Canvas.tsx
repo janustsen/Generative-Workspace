@@ -3,7 +3,57 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { StoredModule } from "@/lib/types";
 import { Module } from "./Module";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
+
+function InsightsButton({
+  modules,
+  onNewModule,
+}: {
+  modules: StoredModule[];
+  onNewModule: (m: StoredModule) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const generate = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { module } = await api.workspaceInsights();
+      onNewModule(module);
+    } catch (err) {
+      const msg =
+        err instanceof ApiError && err.refusal
+          ? err.refusal
+          : err instanceof Error
+            ? err.message
+            : "Could not generate insights.";
+      setError(msg);
+      setTimeout(() => setError(null), 4000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5">
+      {error && (
+        <div className="rounded-lg bg-[var(--surface)] border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--danger)] shadow">
+          {error}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={generate}
+        disabled={loading}
+        className="rounded-full bg-[var(--surface)]/90 backdrop-blur border border-[var(--border)] px-4 py-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--accent)] transition disabled:opacity-40 shadow font-mono"
+        title="Generate a dashboard that aggregates your modules"
+      >
+        {loading ? "Synthesizing…" : "✦ Workspace insights"}
+      </button>
+    </div>
+  );
+}
 
 interface Props {
   modules: StoredModule[];
@@ -11,6 +61,7 @@ interface Props {
   onModuleDelete: (id: string) => void;
   onModuleUndo: (id: string) => void;
   onModuleSelectForRefine: (id: string) => void;
+  onNewModule: (m: StoredModule) => void;
 }
 
 interface View {
@@ -19,12 +70,49 @@ interface View {
   zoom: number;
 }
 
+function computeMetric(
+  modules: StoredModule[],
+  formula: "sum" | "count" | "avg" | "max" | "min",
+  sourceComponentId: string,
+  excludeId: string,
+): number {
+  const vals = modules
+    .filter((m) => m.id !== excludeId)
+    .map((m) => m.config.state[sourceComponentId])
+    .filter((v): v is number => typeof v === "number");
+  if (vals.length === 0) return 0;
+  switch (formula) {
+    case "sum": return vals.reduce((a, b) => a + b, 0);
+    case "count": return vals.length;
+    case "avg": return vals.reduce((a, b) => a + b, 0) / vals.length;
+    case "max": return Math.max(...vals);
+    case "min": return Math.min(...vals);
+  }
+}
+
+function crossModuleValues(modules: StoredModule[], module: StoredModule): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const c of module.config.components) {
+    if (c.type === "metric") {
+      result[c.id] = computeMetric(modules, c.formula, c.source_component_id, module.id);
+    } else if (c.type === "progress_bar" && c.source_module_id) {
+      const src = modules.find((m) => m.id === c.source_module_id);
+      if (src && c.bound_to) {
+        const v = src.config.state[c.bound_to];
+        result[c.id] = typeof v === "number" ? v : 0;
+      }
+    }
+  }
+  return result;
+}
+
 export function Canvas({
   modules,
   onModuleChange,
   onModuleDelete,
   onModuleUndo,
   onModuleSelectForRefine,
+  onNewModule,
 }: Props) {
   const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 });
   const [draggingModule, setDraggingModule] = useState<string | null>(null);
@@ -208,6 +296,7 @@ export function Canvas({
             <Module
               key={m.id}
               module={m}
+              crossModuleValues={crossModuleValues(modules, m)}
               onChange={onModuleChange}
               onDelete={onModuleDelete}
               onUndo={onModuleUndo}
@@ -218,6 +307,10 @@ export function Canvas({
           ))}
         </div>
       </div>
+
+      {modules.length >= 2 && (
+        <InsightsButton modules={modules} onNewModule={onNewModule} />
+      )}
 
       <div className="absolute bottom-4 right-4 flex items-center gap-2 rounded-full bg-[var(--surface)]/80 backdrop-blur px-3 py-1.5 border border-[var(--border)] text-xs text-[var(--muted)] font-mono">
         <button

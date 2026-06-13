@@ -96,6 +96,7 @@ export default function Home() {
         onModuleDelete={handleDeleteModule}
         onModuleUndo={handleUndoModule}
         onModuleSelectForRefine={handleSelectForRefine}
+        onNewModule={handleNewModule}
       />
       <PromptBar
         onModule={handleNewModule}

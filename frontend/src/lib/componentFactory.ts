@@ -7,6 +7,7 @@ export const COMPONENT_TYPES: { type: ComponentType; label: string }[] = [
   { type: "slider", label: "Slider" },
   { type: "progress_bar", label: "Progress bar" },
   { type: "list", label: "List" },
+  { type: "metric", label: "Metric" },
 ];
 
 let counter = 0;
@@ -27,5 +28,7 @@ export function makeComponent(type: ComponentType, label?: string): Component {
       return { id, type, label: label ?? "Progress", max: 100 };
     case "list":
       return { id, type, label: label ?? "List", item_label: "Item" };
+    case "metric":
+      return { id, type, label: label ?? "Total", formula: "sum", source_component_id: "value" };
   }
 }

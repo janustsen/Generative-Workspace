@@ -38,5 +38,7 @@ function summarizeComponent(
     }
     case "text_input":
       return raw ? String(raw) : c.label;
+    case "metric":
+      return `${c.label}: …`;
   }
 }

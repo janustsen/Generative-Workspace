@@ -29,8 +29,9 @@ async def generate_module(body: GenerateRequest, request: Request) -> GenerateRe
     if not prompt:
         raise HTTPException(status_code=422, detail="Prompt cannot be empty")
     sid = _session_id(request)
+    existing = [m.config for m in db.list_modules(sid)]
     try:
-        config = orchestrator.generate_module(prompt)
+        config = orchestrator.generate_module(prompt, existing_modules=existing)
     except RefusalError as e:
         raise HTTPException(status_code=422, detail={"refusal": e.reason})
     except LLMError:
@@ -73,8 +74,9 @@ async def refine_module(module_id: str, body: RefineRequest, request: Request) -
     existing = db.get_module(sid, module_id)
     if existing is None:
         raise HTTPException(status_code=404, detail="Module not found")
+    other_modules = [m.config for m in db.list_modules(sid) if m.id != module_id]
     try:
-        new_config = orchestrator.refine_module(existing.config, prompt)
+        new_config = orchestrator.refine_module(existing.config, prompt, existing_modules=other_modules)
     except RefusalError as e:
         raise HTTPException(status_code=422, detail={"refusal": e.reason})
     except LLMError:
@@ -101,3 +103,23 @@ async def undo_module(module_id: str, request: Request) -> StoredModule:
 async def module_history(module_id: str, request: Request) -> list[ModuleVersion]:
     sid = _session_id(request)
     return db.list_versions(sid, module_id)
+
+
+@router.post("/workspace/insights", response_model=GenerateResponse)
+async def workspace_insights(request: Request) -> GenerateResponse:
+    sid = _session_id(request)
+    modules = db.list_modules(sid)
+    if not modules:
+        raise HTTPException(status_code=422, detail="No modules on canvas to synthesize.")
+    existing_configs = [m.config for m in modules]
+    try:
+        config = orchestrator.synthesize_workspace(existing_configs)
+    except RefusalError as e:
+        raise HTTPException(status_code=422, detail={"refusal": e.reason})
+    except LLMError:
+        raise HTTPException(
+            status_code=503,
+            detail="AI generation is temporarily unavailable. Please try again in a moment.",
+        )
+    stored = db.insert_module(sid, config)
+    return GenerateResponse(module=stored)

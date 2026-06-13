@@ -2,7 +2,7 @@
 
 _An AI-orchestrated personal operating system: describe what you want to organize, and the system generates the exact tool for it._
 
-**Last updated:** 2026-06-13
+**Last updated:** 2026-06-14
 **Repo:** https://github.com/dsanchezt22/Generative-Workspace
 **North star:** the exact tool you need, in the shape of your life, for the cost of a sentence — and you stay in the driver's seat the entire time.
 
@@ -22,7 +22,7 @@ prompt ──▶ Gemini (orchestrator) ──▶ ModuleConfig (JSON) ──▶ t
 - **Backend:** Python 3.12 · FastAPI · SQLite (stdlib) · `google-genai`
 - **Frontend:** Next.js 16 · React 19 · TypeScript · Tailwind v4
 - **Model:** `gemini-flash-latest` (key in `backend/.env`, gitignored)
-- **Quality:** 62 backend tests passing, 2 live tests opt-in (`GEMINI_LIVE=1`)
+- **Quality:** 72 backend tests passing, 2 live tests opt-in (`GEMINI_LIVE=1`)
 
 ---
 
@@ -70,7 +70,7 @@ prompt ──▶ Gemini (orchestrator) ──▶ ModuleConfig (JSON) ──▶ t
 | 2 | **Modules (atomic unit)** | ✅ Done | Card anatomy, collapse-to-summary, skeleton-first creation |
 | 3 | **Multi-modal input** | 🟡 Partial | Text ✅. Voice / document+image upload / drawing / ramble-to-modules ❌ |
 | 4 | **Orchestrator + component library** | ✅ Done | Config-not-code; 6 primitives (library is intentionally extensible) |
-| 5 | **Module intelligence** (cross-module rules, AI extrapolation, external data binding) | ❌ Not started | The biggest remaining "magic" — modules are still islands |
+| 5 | **Module intelligence** (cross-module rules, AI extrapolation, external data binding) | ✅ Done (core) | `metric` component aggregates values across modules; cross-module `progress_bar` binding; AI receives full module context on generate/refine; "Workspace insights" synthesizes a dashboard module. External data binding ❌ |
 | 6 | **Pages & infinite depth** | ❌ Not started | Single canvas only; no multi-page or nesting |
 | 7 | **Collaboration** | ❌ Not started | Single anonymous session; no sharing/real-time |
 | 8 | **History, versioning & undo** | ✅ Done (core) | Version snapshots, per-module undo, history endpoint. No snapshot-viewer UI / global undo yet |
@@ -90,7 +90,7 @@ prompt ──▶ Gemini (orchestrator) ──▶ ModuleConfig (JSON) ──▶ t
 ## 3. What's left (roughly prioritized)
 
 **High value, unblocked now**
-1. **Module intelligence (II.5)** — cross-module relationships, derived/dashboard values, and AI extrapolation across modules. This is the feature that turns "a set of forms" into "a model of your life."
+1. ~~**Module intelligence (II.5)**~~ ✅ Done
 2. **Pages & infinite depth (II.6)** — multiple canvases (Work, Health, Finances) and embedding; the primary defense against canvas clutter.
 3. **External data binding (II.5.3)** — e.g. a calorie tracker that fetches an item's calories on the spot. The "generative UI + real functionality" moat.
 4. **Richer creation (II.3 + minimal-intrusion)** — the inline clarifying-question step; ramble-to-modules; voice and document/image upload.

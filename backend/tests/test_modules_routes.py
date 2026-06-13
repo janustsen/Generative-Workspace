@@ -216,3 +216,61 @@ def test_refine_scoped_to_session(client, second_client):
     module_id = created["module"]["id"]
     resp = second_client.post(f"/api/modules/{module_id}/refine", json={"prompt": "add a checkbox"})
     assert resp.status_code == 404
+
+
+METRIC_RAW = json.dumps({
+    "title": "Dashboard",
+    "components": [
+        {
+            "id": "total_reps",
+            "type": "metric",
+            "label": "Total Reps",
+            "formula": "sum",
+            "source_component_id": "reps",
+        }
+    ],
+})
+
+
+def test_generate_module_with_metric_component(client):
+    with patch("src.services.orchestrator.llm.generate", return_value=METRIC_RAW):
+        resp = client.post("/api/modules/generate", json={"prompt": "dashboard"})
+    assert resp.status_code == 200, resp.text
+    comp = resp.json()["module"]["config"]["components"][0]
+    assert comp["type"] == "metric"
+    assert comp["formula"] == "sum"
+    assert comp["source_component_id"] == "reps"
+
+
+def test_workspace_insights_returns_module(client):
+    with patch("src.services.orchestrator.llm.generate", return_value=VALID_RAW):
+        client.post("/api/modules/generate", json={"prompt": "workout"})
+        client.post("/api/modules/generate", json={"prompt": "meals"})
+
+    with patch("src.services.orchestrator.llm.generate", return_value=METRIC_RAW):
+        resp = client.post("/api/workspace/insights")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["module"]["config"]["title"] == "Dashboard"
+
+
+def test_workspace_insights_requires_modules(client):
+    resp = client.post("/api/workspace/insights")
+    assert resp.status_code == 422
+
+
+def test_workspace_insights_scoped_to_session(client, second_client):
+    with patch("src.services.orchestrator.llm.generate", return_value=VALID_RAW):
+        client.post("/api/modules/generate", json={"prompt": "workout"})
+        client.post("/api/modules/generate", json={"prompt": "meals"})
+    # second_client has no modules — should get 422
+    resp = second_client.post("/api/workspace/insights")
+    assert resp.status_code == 422
+
+
+def test_generate_passes_existing_modules_context(client):
+    with patch("src.services.orchestrator.llm.generate", return_value=VALID_RAW) as mock_gen:
+        client.post("/api/modules/generate", json={"prompt": "workout"})
+        client.post("/api/modules/generate", json={"prompt": "another module"})
+    # Second call should have received context with existing modules
+    second_call_prompt = mock_gen.call_args_list[1][0][0]
+    assert "Existing modules" in second_call_prompt

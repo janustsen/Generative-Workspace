@@ -4,7 +4,8 @@ export type ComponentType =
   | "checkbox"
   | "slider"
   | "progress_bar"
-  | "list";
+  | "list"
+  | "metric";
 
 export interface ComponentBase {
   id: string;
@@ -41,6 +42,14 @@ export interface ProgressBar extends ComponentBase {
   type: "progress_bar";
   max: number;
   bound_to?: string | null;
+  source_module_id?: string | null;
+}
+
+export interface Metric extends ComponentBase {
+  type: "metric";
+  formula: "sum" | "count" | "avg" | "max" | "min";
+  source_component_id: string;
+  unit?: string | null;
 }
 
 export interface ListField extends ComponentBase {
@@ -55,7 +64,8 @@ export type Component =
   | Checkbox
   | Slider
   | ProgressBar
-  | ListField;
+  | ListField
+  | Metric;
 
 export interface ModuleLayout {
   x: number;

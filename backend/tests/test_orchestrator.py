@@ -116,3 +116,62 @@ def test_refine_module_stub_returns_config_unchanged(monkeypatch):
     result = orchestrator.refine_module(original, "add a rest day checkbox")
     assert result.title == original.title
     assert len(result.components) == len(original.components)
+
+
+# --- context injection tests ---
+
+def test_generate_module_includes_existing_context():
+    from src.schema import ModuleConfig, TextInput
+    existing = [ModuleConfig(title="Meal Log", components=[TextInput(id="meal", label="Meal")])]
+    with _fake_llm(VALID) as mock_gen:
+        orchestrator.generate_module("add a dashboard", existing_modules=existing)
+    prompt_used = mock_gen.call_args[0][0]
+    assert "Meal Log" in prompt_used
+    assert "meal" in prompt_used
+
+
+def test_refine_module_includes_existing_context():
+    from src.schema import ModuleConfig, TextInput
+    existing = [ModuleConfig(title="Meal Log", components=[TextInput(id="meal", label="Meal")])]
+    with _fake_llm(VALID) as mock_gen:
+        orchestrator.refine_module(_make_config(), "add cross-module binding", existing_modules=existing)
+    prompt_used = mock_gen.call_args[0][0]
+    assert "Meal Log" in prompt_used
+
+
+# --- synthesize_workspace tests ---
+
+DASHBOARD_RAW = json.dumps({
+    "title": "Dashboard",
+    "components": [
+        {"id": "total_reps", "type": "metric", "label": "Total Reps",
+         "formula": "sum", "source_component_id": "reps"},
+    ],
+})
+
+
+def test_synthesize_workspace_returns_dashboard():
+    with _fake_llm(DASHBOARD_RAW):
+        config = orchestrator.synthesize_workspace([_make_config()])
+    assert config.title == "Dashboard"
+    assert config.components[0].type == "metric"
+
+
+def test_synthesize_workspace_stub_returns_stub_module(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "stub-test")
+    config = orchestrator.synthesize_workspace([_make_config()])
+    assert config.title == "Dashboard"
+    assert any(c.type == "metric" for c in config.components)
+
+
+# --- metric schema validation ---
+
+def test_metric_component_roundtrips():
+    from src.schema import ModuleConfig, Metric
+    config = ModuleConfig(
+        title="Stats",
+        components=[Metric(id="total", label="Total", formula="sum", source_component_id="reps")],
+    )
+    reloaded = ModuleConfig.model_validate_json(config.model_dump_json())
+    assert reloaded.components[0].type == "metric"
+    assert reloaded.components[0].formula == "sum"  # type: ignore[union-attr]

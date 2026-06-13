@@ -68,4 +68,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ prompt }),
     }),
+  workspaceInsights: () =>
+    request<GenerateResponse>("/api/workspace/insights", { method: "POST" }),
 };
