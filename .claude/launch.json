@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "trus-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend",
+      "port": 3000
+    },
+    {
+      "name": "trus-backend",
+      "runtimeExecutable": "./.venv/bin/uvicorn",
+      "runtimeArgs": ["src.main:app", "--reload", "--port", "8000"],
+      "cwd": "backend",
+      "port": 8000,
+      "env": {
+        "GEMINI_API_KEY": "stub-not-used-in-mocked-verification",
+        "SESSION_SECRET": "dev-secret-for-preview-only"
+      }
+    }
+  ]
+}

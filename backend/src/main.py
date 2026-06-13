@@ -21,7 +21,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ.get("SESSION_SECRET", "dev-insecure-key-change-me"),
     session_cookie="trus_sid",
-    same_site="none",
+    same_site="lax",
     https_only=False,
     max_age=60 * 60 * 24 * 365,
 )
