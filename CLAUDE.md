@@ -1,12 +1,12 @@
-# Generative-Workspace
+# Trus
 
-Full-stack AI workspace app. Python (FastAPI) backend with Gemini/Vertex AI; React frontend.
+An AI-orchestrated personal operating system. Backend orchestrates Gemini to emit `ModuleConfig` JSON; the frontend renders that config with a trusted component library on an infinite canvas.
 
 ## Stack
 
-- **Backend**: Python 3.11+, FastAPI, Google Generative AI SDK (`google-generativeai`)
-- **Frontend**: React (JS), Vite
-- **Testing**: pytest + pytest-cov (backend), Vitest (frontend)
+- **Backend**: Python 3.11+, FastAPI, SQLite (stdlib), `google-genai` SDK
+- **Frontend**: Next.js + TypeScript, Tailwind
+- **Testing**: pytest + pytest-cov (backend)
 - **Env**: `.env` at repo root — never commit it
 
 ## Project Layout
@@ -17,7 +17,9 @@ backend/
   tests/      ← pytest test files
   requirements.txt
 frontend/
-  src/        ← React components and pages
+  app/        ← Next.js App Router pages
+  components/ ← module renderer + primitive component library
+  lib/        ← API client, types
   package.json
 ```
 
@@ -26,7 +28,7 @@ frontend/
 ```bash
 # Backend
 cd backend && pip install -r requirements.txt
-cd backend && uvicorn src.main:app --reload
+cd backend && uvicorn src.main:app --reload   # http://localhost:8000
 
 # Tests (backend)
 cd backend && pytest --cov=src --cov-report=term-missing -q
@@ -35,7 +37,7 @@ cd backend && pytest --cov=src --cov-report=term-missing -q
 cd backend && python -m pytest --cov=src --cov-report=term-missing -q 2>/dev/null | grep TOTAL | awk '{print $4}' | tr -d '%'
 
 # Frontend
-cd frontend && npm install && npm run dev
+cd frontend && npm install && npm run dev     # http://localhost:3000
 ```
 
 ## AutoResearch Configuration
@@ -54,6 +56,8 @@ Guard:   cd backend && python -m pytest -q 2>/dev/null && echo "passed"
 
 - All backend modules live under `backend/src/` and are importable as `src.<module>`
 - Tests mirror the src structure: `tests/test_<module>.py`
-- Gemini calls go through `src/llm.py` — never call `google.generativeai` directly from route handlers
+- Gemini calls go through `src/llm.py` — never call `google.genai` directly from route handlers
 - Use `python-dotenv` to load env vars; never hardcode API keys
 - FastAPI routes live in `src/routes/`; business logic in `src/services/`
+- The orchestrator returns a `ModuleConfig` (Pydantic) — never raw HTML/CSS/JS. The frontend renders that config via a trusted component library.
+- Frontend uses the Next.js App Router. Components are server-rendered by default; mark interactive pieces with `"use client"`.
