@@ -18,25 +18,12 @@ def _stub_module_for(prompt: str) -> str:
 
     Lets the full pipeline (frontend → backend → orchestrator → renderer) be
     exercised locally without burning real LLM credits or needing an API key.
+    Routes the prompt to an intent-appropriate template so different prompts
+    produce genuinely different modules (see stub_templates.py).
     """
-    title_words = prompt.strip().split()[:4]
-    title = " ".join(w.capitalize() for w in title_words) or "Tracker"
-    return json.dumps(
-        {
-            "title": f"{title} Tracker",
-            "components": [
-                {"id": "name", "type": "text_input", "label": "Name", "placeholder": "e.g. Bench press"},
-                {"id": "sets", "type": "number_input", "label": "Sets", "min": 0, "step": 1},
-                {"id": "weight", "type": "slider", "label": "Weight", "min": 0, "max": 300, "step": 5, "unit": "lb"},
-                {"id": "done_today", "type": "checkbox", "label": "Done today"},
-                {"id": "history", "type": "list", "label": "History", "item_label": "Entry", "placeholder": "Today: 3x5 @ 135"},
-                {"id": "weekly", "type": "progress_bar", "label": "Weekly target", "max": 5, "bound_to": "sets"},
-            ],
-            "state": {},
-            "layout": {"x": 80, "y": 120, "width": 380, "height": 460},
-            "summary_component_id": "weekly",
-        }
-    )
+    from src.stub_templates import pick_template
+
+    return json.dumps(pick_template(prompt))
 
 
 def _get_client():

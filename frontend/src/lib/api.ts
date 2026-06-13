@@ -21,6 +21,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(res.status, detail);
   }
+  if (res.status === 204) {
+    return undefined as T;
+  }
   return (await res.json()) as T;
 }
 
@@ -56,4 +59,6 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ config }),
     }),
+  deleteModule: (id: string) =>
+    request<void>(`/api/modules/${id}`, { method: "DELETE" }),
 };

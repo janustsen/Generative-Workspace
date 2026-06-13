@@ -83,3 +83,26 @@ def test_patch_unknown_module_returns_404(client):
     )
     resp = client.patch("/api/modules/nope", json={"config": new_config.model_dump()})
     assert resp.status_code == 404
+
+
+def test_delete_module_removes_it(client):
+    with patch("src.services.orchestrator.llm.generate", return_value=VALID_RAW):
+        created = client.post("/api/modules/generate", json={"prompt": "track my workouts"}).json()
+    module_id = created["module"]["id"]
+    resp = client.delete(f"/api/modules/{module_id}")
+    assert resp.status_code == 204
+    assert client.get("/api/modules").json() == []
+
+
+def test_delete_unknown_module_returns_404(client):
+    resp = client.delete("/api/modules/nope")
+    assert resp.status_code == 404
+
+
+def test_delete_is_scoped_to_session(client, second_client):
+    with patch("src.services.orchestrator.llm.generate", return_value=VALID_RAW):
+        created = client.post("/api/modules/generate", json={"prompt": "track my workouts"}).json()
+    module_id = created["module"]["id"]
+    # A different session must not be able to delete it.
+    assert second_client.delete(f"/api/modules/{module_id}").status_code == 404
+    assert len(client.get("/api/modules").json()) == 1

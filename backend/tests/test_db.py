@@ -63,3 +63,26 @@ def test_update_module_rejects_cross_session():
     s2 = db.ensure_session(None)
     stored = db.insert_module(s1, _sample_config())
     assert db.update_module(s2, stored.id, _sample_config("hacked")) is None
+
+
+def test_delete_module_removes_it():
+    db.init_db()
+    sid = db.ensure_session(None)
+    stored = db.insert_module(sid, _sample_config())
+    assert db.delete_module(sid, stored.id) is True
+    assert db.list_modules(sid) == []
+
+
+def test_delete_module_rejects_cross_session():
+    db.init_db()
+    s1 = db.ensure_session(None)
+    s2 = db.ensure_session(None)
+    stored = db.insert_module(s1, _sample_config())
+    assert db.delete_module(s2, stored.id) is False
+    assert len(db.list_modules(s1)) == 1
+
+
+def test_delete_unknown_module_returns_false():
+    db.init_db()
+    sid = db.ensure_session(None)
+    assert db.delete_module(sid, "nope") is False

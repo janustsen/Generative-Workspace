@@ -47,3 +47,10 @@ async def patch_module(module_id: str, body: PatchRequest, request: Request) -> 
     if updated is None:
         raise HTTPException(status_code=404, detail="Module not found")
     return updated
+
+
+@router.delete("/modules/{module_id}", status_code=204)
+async def delete_module(module_id: str, request: Request) -> None:
+    sid = _session_id(request)
+    if not db.delete_module(sid, module_id):
+        raise HTTPException(status_code=404, detail="Module not found")

@@ -43,6 +43,13 @@ export default function Home() {
     );
   }, []);
 
+  const handleDeleteModule = useCallback((id: string) => {
+    setModules((prev) => prev.filter((m) => m.id !== id));
+    void api.deleteModule(id).catch((err) => {
+      console.error("Failed to delete module", err);
+    });
+  }, []);
+
   return (
     <main className="flex-1 flex flex-col h-screen relative">
       <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-4 pointer-events-none">
@@ -57,7 +64,11 @@ export default function Home() {
           </p>
         </div>
       </header>
-      <Canvas modules={modules} onModuleChange={handleModuleChange} />
+      <Canvas
+        modules={modules}
+        onModuleChange={handleModuleChange}
+        onModuleDelete={handleDeleteModule}
+      />
       <PromptBar onModule={handleNewModule} />
     </main>
   );

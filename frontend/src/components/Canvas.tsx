@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 interface Props {
   modules: StoredModule[];
   onModuleChange: (updated: StoredModule) => void;
+  onModuleDelete: (id: string) => void;
 }
 
 interface View {
@@ -16,7 +17,7 @@ interface View {
   zoom: number;
 }
 
-export function Canvas({ modules, onModuleChange }: Props) {
+export function Canvas({ modules, onModuleChange, onModuleDelete }: Props) {
   const [view, setView] = useState<View>({ x: 0, y: 0, zoom: 1 });
   const [draggingModule, setDraggingModule] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -153,6 +154,7 @@ export function Canvas({ modules, onModuleChange }: Props) {
               key={m.id}
               module={m}
               onChange={onModuleChange}
+              onDelete={onModuleDelete}
               onDragStart={handleModuleDragStart}
             />
           ))}

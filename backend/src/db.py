@@ -20,11 +20,50 @@ def _db_path() -> Path:
     return Path(override) if override else DEFAULT_DB_PATH
 
 
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS sessions (
+    id          TEXT PRIMARY KEY,
+    created_at  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS modules (
+    id          TEXT PRIMARY KEY,
+    session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    config_json TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_modules_session
+    ON modules(session_id, created_at);
+"""
+
+# Tracks which db file has had its schema ensured this process, so we re-run the
+# (idempotent) DDL when the path changes — or when the file vanishes underneath
+# a running server. Reliability over cleverness (design doc I.3).
+_schema_ready_for: str | None = None
+
+
+def _ensure_schema(conn: sqlite3.Connection) -> None:
+    global _schema_ready_for
+    path = str(_db_path())
+    needs = _schema_ready_for != path
+    if not needs:
+        # Cheap guard against the file having been deleted mid-run.
+        try:
+            conn.execute("SELECT 1 FROM sessions LIMIT 1")
+        except sqlite3.OperationalError:
+            needs = True
+    if needs:
+        conn.executescript(_SCHEMA)
+        conn.commit()
+        _schema_ready_for = path
+
+
 @contextmanager
 def _conn() -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(_db_path())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    _ensure_schema(conn)
     try:
         yield conn
         conn.commit()
@@ -33,24 +72,8 @@ def _conn() -> Iterator[sqlite3.Connection]:
 
 
 def init_db() -> None:
-    with _conn() as c:
-        c.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS sessions (
-                id          TEXT PRIMARY KEY,
-                created_at  TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS modules (
-                id          TEXT PRIMARY KEY,
-                session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-                config_json TEXT NOT NULL,
-                created_at  TEXT NOT NULL,
-                updated_at  TEXT NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_modules_session
-                ON modules(session_id, created_at);
-            """
-        )
+    with _conn():
+        pass
 
 
 def _now() -> str:
@@ -110,3 +133,12 @@ def update_module(session_id: str, module_id: str, config: ModuleConfig) -> Stor
             "SELECT created_at FROM modules WHERE id = ?", (module_id,)
         ).fetchone()
     return StoredModule(id=module_id, config=config, created_at=row["created_at"], updated_at=now)
+
+
+def delete_module(session_id: str, module_id: str) -> bool:
+    with _conn() as c:
+        cur = c.execute(
+            "DELETE FROM modules WHERE id = ? AND session_id = ?",
+            (module_id, session_id),
+        )
+        return cur.rowcount > 0
