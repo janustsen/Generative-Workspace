@@ -12,3 +12,4 @@ dist/
 venv/
 backend/trus.db
 backend/trus.db-journal
+.claude/settings.local.json
