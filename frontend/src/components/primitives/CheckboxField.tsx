@@ -15,7 +15,7 @@ export function CheckboxField({ spec, value, onChange }: Props) {
         type="checkbox"
         checked={Boolean(value)}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-[var(--border)] bg-[var(--surface-elevated)] accent-[var(--accent)]"
+        className={`h-4 w-4 rounded border-[var(--border)] bg-[var(--surface-elevated)] accent-[var(--accent)] ${value ? "animate-checkpop" : ""}`}
       />
       <span className="text-sm">{spec.label}</span>
     </label>

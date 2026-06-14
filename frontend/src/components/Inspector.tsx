@@ -7,6 +7,7 @@ import { COMPONENT_TYPES, makeComponent } from "@/lib/componentFactory";
 import { ACCENTS, ACCENT_NAMES, ICON_CHOICES, resolveAccent, resolveIconName } from "@/lib/theme";
 import { Icon } from "./Icon";
 import { Select } from "./Select";
+import { FieldOptions } from "./FieldOptions";
 
 interface Props {
   module: StoredModule;
@@ -208,6 +209,11 @@ export function Inspector({ module, onChange, onClose, onRefine, onDelete, onDup
                   />
                 )}
               </div>
+              <FieldOptions
+                c={c}
+                components={draft.components}
+                onPatch={(patch) => update((d) => ({ ...d, components: d.components.map((x) => x.id === c.id ? ({ ...x, ...patch } as Component) : x) }), true)}
+              />
             </div>
           ))}
           {draft.components.length === 0 && <p className="text-xs text-[var(--muted)] italic">No fields. Add one below.</p>}
@@ -265,7 +271,7 @@ export function Inspector({ module, onChange, onClose, onRefine, onDelete, onDup
 
       <div className="p-3 border-t border-[var(--border)] flex flex-col gap-2 shrink-0">
         <button type="button" onClick={() => onRefine(module.id)}
-          className="w-full rounded-md bg-[var(--accent)] text-[var(--accent-fg)] px-3 py-1.5 text-sm font-medium hover:brightness-110 transition">✦ Edit with AI</button>
+          className="press w-full rounded-md bg-[var(--accent)] text-[var(--accent-fg)] px-3 py-1.5 text-sm font-medium hover:brightness-110 transition">✦ Edit with AI</button>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => onDuplicate(module.id)}
             className="flex-1 rounded-md border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition">Duplicate</button>

@@ -208,8 +208,9 @@ export default function Home() {
     });
     reloadConvo(activePageId);
     setShowWelcome(false);
-    // Frame the freshly-generated tool(s) — auto zoom/pan to fit.
-    setFitReq((n) => n + 1);
+    // Frame the freshly-generated tool(s) — auto zoom/pan to fit. Deferred so the
+    // content-sized card has mounted and reported its real height first.
+    window.setTimeout(() => setFitReq((n) => n + 1), 160);
   }, [activePageId, reloadConvo]);
 
   const handleModuleChange = useCallback((updated: StoredModule) => {

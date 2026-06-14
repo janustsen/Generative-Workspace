@@ -1,6 +1,7 @@
 "use client";
 
 import type { Snapshot } from "@/lib/types";
+import { Icon } from "./Icon";
 
 function timeAgo(iso: string): string {
   const t = new Date(iso).getTime();
@@ -32,8 +33,8 @@ export function SnapshotsPanel({ snapshots, pageName, onClose, onSave, onRestore
       </header>
       <div className="p-3 border-b border-[var(--border)]">
         <button type="button" onClick={onSave}
-          className="w-full rounded-md bg-[var(--accent)] text-[var(--accent-fg)] px-3 py-1.5 text-sm font-medium hover:brightness-110 transition">
-          📸 Save this page as a snapshot
+          className="press w-full flex items-center justify-center gap-1.5 rounded-md bg-[var(--accent)] text-[var(--accent-fg)] px-3 py-1.5 text-sm font-medium hover:brightness-110 transition">
+          <Icon name="layers" size={15} /> Save this page as a snapshot
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">

@@ -283,17 +283,33 @@ export function Canvas({
     });
   }, []);
 
+  // Content-sized cards report height:0 in their layout, so we measure the real
+  // rendered DOM height for correct fit/minimap framing (otherwise the content
+  // box is ~0 tall and the fit zooms way in — modules look "overly big").
+  const heightsRef = useRef<Record<string, number>>({});
+  const [heights, setHeights] = useState<Record<string, number>>({});
+  const reportHeight = useCallback((id: string, h: number) => {
+    if (Math.abs((heightsRef.current[id] ?? 0) - h) < 1) return;
+    heightsRef.current[id] = h;
+    setHeights((p) => ({ ...p, [id]: h }));
+  }, []);
+  const heightOf = useCallback(
+    (m: StoredModule) => heightsRef.current[m.id] || m.config.layout.height || 320,
+    [],
+  );
+
   // Bounding box of all modules on the page (world coordinates).
   const contentBounds = useCallback(() => {
     if (modules.length === 0) return null;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const m of modules) {
-      const { x, y, width, height } = m.config.layout;
+      const { x, y, width } = m.config.layout;
       minX = Math.min(minX, x); minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x + width); maxY = Math.max(maxY, y + height);
+      maxX = Math.max(maxX, x + (width || 372)); maxY = Math.max(maxY, y + heightOf(m));
     }
     return { minX, minY, maxX, maxY };
-  }, [modules]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modules, heights, heightOf]);
 
   const fitToContent = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -302,7 +318,9 @@ export function Canvas({
     const pad = 80;
     const cw = b.maxX - b.minX + pad * 2;
     const ch = b.maxY - b.minY + pad * 2;
-    const zoom = clampZoom(Math.min(rect.width / cw, rect.height / ch));
+    // Never magnify past 100% when fitting — upscaling is what made freshly
+    // generated tools look "overly big". We only ever zoom out to fit.
+    const zoom = Math.min(1, clampZoom(Math.min(rect.width / cw, rect.height / ch)));
     const cxWorld = (b.minX + b.maxX) / 2;
     const cyWorld = (b.minY + b.maxY) / 2;
     setView({
@@ -312,8 +330,12 @@ export function Canvas({
     });
   }, [contentBounds]);
 
+  // Run the fit through a ref so it always uses the latest measured heights,
+  // while only firing when a fit is explicitly requested (not on every measure).
+  const fitToContentRef = useRef(fitToContent);
+  useEffect(() => { fitToContentRef.current = fitToContent; });
   useEffect(() => {
-    if (fitRequest) fitToContent();
+    if (fitRequest) fitToContentRef.current();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitRequest]);
 
@@ -337,10 +359,12 @@ export function Canvas({
         }}
       >
         <div style={{ pointerEvents: "auto" }} className="relative">
-          {modules.map((m) => (
+          {modules.map((m, i) => (
             <Module
               key={m.id}
               module={m}
+              index={i}
+              onMeasure={reportHeight}
               crossModuleValues={crossModuleValues(modules, m)}
               selected={m.id === selectedId}
               onChange={onModuleChange}
@@ -391,8 +415,8 @@ export function Canvas({
                   className="absolute rounded-[2px]"
                   style={{
                     left: p.x, top: p.y,
-                    width: Math.max(3, m.config.layout.width * s),
-                    height: Math.max(3, m.config.layout.height * s),
+                    width: Math.max(3, (m.config.layout.width || 372) * s),
+                    height: Math.max(3, heightOf(m) * s),
                     background: "color-mix(in srgb, var(--accent) 70%, transparent)",
                   }}
                 />

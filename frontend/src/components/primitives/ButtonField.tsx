@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ActionButton } from "@/lib/types";
+import { Icon } from "../Icon";
 
 interface Props {
   spec: ActionButton;
   onAction: () => void; // for increment / add_item
+  count?: number;       // live tally shown for counter / add-to-list buttons
 }
 
-export function ButtonField({ spec, onAction }: Props) {
+export function ButtonField({ spec, onAction, count }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   const utility = spec.action === "calculator" || spec.action === "timer";
@@ -20,16 +22,20 @@ export function ButtonField({ spec, onAction }: Props) {
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  const icon = spec.action === "calculator" ? "🧮" : spec.action === "timer" ? "⏱️" : "＋";
+  const iconName = spec.action === "calculator" ? "calculator" : spec.action === "timer" ? "clock" : "plus";
 
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
         onClick={() => (utility ? setOpen((v) => !v) : onAction())}
-        className="w-full flex items-center justify-center gap-1.5 rounded-md bg-[var(--accent)] text-[var(--accent-fg)] px-3 py-2 text-sm font-medium hover:brightness-110 transition"
+        className="press w-full flex items-center justify-center gap-1.5 rounded-md bg-[var(--accent)] text-[var(--accent-fg)] px-3 py-2 text-sm font-medium hover:brightness-110 transition"
       >
-        <span aria-hidden>{icon}</span> {spec.label}
+        <Icon name={iconName} size={15} />
+        <span className="truncate">{spec.label}</span>
+        {count !== undefined && (
+          <span className="ml-1 rounded-full bg-[var(--accent-fg)]/20 px-1.5 text-xs tabular-nums leading-tight">{count}</span>
+        )}
       </button>
       {open && utility && (
         <div className="absolute z-20 mt-1 left-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl shadow-black/30 p-2">

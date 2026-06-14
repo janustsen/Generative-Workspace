@@ -1,4 +1,7 @@
+"use client";
+
 import type { Metric } from "@/lib/types";
+import { useCountUp } from "@/lib/useCountUp";
 
 interface Props {
   spec: Metric;
@@ -14,11 +17,12 @@ const FORMULA_LABEL: Record<Metric["formula"], string> = {
 };
 
 export function MetricField({ spec, value }: Props) {
+  const animated = useCountUp(value);
   const display =
     Number.isFinite(value)
       ? value % 1 === 0
-        ? value.toLocaleString()
-        : value.toFixed(1)
+        ? Math.round(animated).toLocaleString()
+        : animated.toFixed(1)
       : "—";
 
   return (

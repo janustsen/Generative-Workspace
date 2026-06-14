@@ -110,10 +110,23 @@ html[data-grid="off"] .canvas-grid {
 }
 .animate-rise { animation: trus-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 
-.animate-pop { animation: trus-pop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* `backwards` (not `both`) so the finished entrance doesn't pin transform:none
+   and override the cards' :hover lift. */
+.animate-pop { animation: trus-pop 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 .animate-fade { animation: trus-fade 0.22s ease both; }
 .animate-slide-right { animation: trus-slide-right 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .animate-scale-in { animation: trus-scale-in 0.16s ease both; }
+
+/* Tactile press feedback for primary buttons (rides Tailwind's `transition`). */
+.press:active { transform: scale(0.96); }
+
+/* A little pop when a checkbox / tracker cell flips on. */
+@keyframes trus-checkpop {
+  0% { transform: scale(0.5); }
+  60% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+.animate-checkpop { animation: trus-checkpop 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
 
 /* A subtle moving sheen for "generating…" states. */
 .shimmer {

@@ -80,7 +80,7 @@ export function makeComponent(type: ComponentType, label?: string): Component {
     case "timeline":
       return { id, type, label: label ?? "Timeline" };
     case "button":
-      return { id, type, label: label ?? "Action", action: "calculator" };
+      return { id, type, label: label ?? "Button", action: "increment" };
     case "section":
       return { id, type, label: label ?? "Section" };
     case "divider":

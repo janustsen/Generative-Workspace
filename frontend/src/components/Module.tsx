@@ -53,22 +53,38 @@ interface Props {
   onResizeStart: (e: React.PointerEvent, moduleId: string) => void;
   onExpand?: (id: string) => void;
   variant?: "canvas" | "detail" | "preview";
+  index?: number;
+  onMeasure?: (id: string, height: number) => void;
 }
 
 export function Module({
   module, crossModuleValues, selected,
   onChange, onDelete, onUndo, onSelectForRefine, onSelect, onDragStart, onResizeStart,
-  onExpand, variant = "canvas",
+  onExpand, variant = "canvas", index = 0, onMeasure,
 }: Props) {
   const isCanvas = variant === "canvas";
   const preview = variant === "preview";
   const [state, setState] = useState<Record<string, unknown>>(module.config.state ?? {});
   const [collapsed, setCollapsed] = useState(false);
   const persistTimer = useRef<number | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setState(module.config.state ?? {});
   }, [module.id, module.config.state]);
+
+  // Report the real rendered height up to the canvas so fit/minimap can frame
+  // content-sized cards correctly (their layout.height is 0).
+  useEffect(() => {
+    if (!isCanvas || !onMeasure) return;
+    const el = rootRef.current;
+    if (!el) return;
+    const report = () => onMeasure(module.id, el.offsetHeight);
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isCanvas, onMeasure, module.id]);
 
   const persistConfig = useCallback(
     async (config: ModuleConfig) => {
@@ -164,15 +180,22 @@ export function Module({
       case "timeline":
         return <TimelineField key={c.id} spec={c} value={(state[c.id] as { date: string; label: string }[]) ?? []} onChange={(v) => setField(c.id, v)} />;
       case "button": {
+        // With no explicit target, increment/add_item act on the button's own
+        // state so a freshly-added Button is functional out of the box.
+        const tgt = c.target || c.id;
         const act = () => {
-          if (c.action === "increment" && c.target) {
-            setField(c.target, (Number(state[c.target]) || 0) + 1);
-          } else if (c.action === "add_item" && c.target) {
-            const cur = Array.isArray(state[c.target]) ? (state[c.target] as string[]) : [];
-            setField(c.target, [...cur, "New item"]);
+          if (c.action === "increment") {
+            setField(tgt, (Number(state[tgt]) || 0) + 1);
+          } else if (c.action === "add_item") {
+            const cur = Array.isArray(state[tgt]) ? (state[tgt] as string[]) : [];
+            setField(tgt, [...cur, "New item"]);
           }
         };
-        return <ButtonField key={c.id} spec={c} onAction={act} />;
+        const count =
+          c.action === "increment" ? (Number(state[tgt]) || 0)
+          : c.action === "add_item" ? (Array.isArray(state[tgt]) ? (state[tgt] as string[]).length : 0)
+          : undefined;
+        return <ButtonField key={c.id} spec={c} onAction={act} count={count} />;
       }
       case "section":
         return (
@@ -225,9 +248,10 @@ export function Module({
 
   return (
     <div
+      ref={rootRef}
       onMouseDown={isCanvas ? () => onSelect(module.id) : undefined}
       className={`rounded-2xl border bg-[var(--surface)] flex flex-col ${
-        isCanvas ? "absolute shadow-lg shadow-black/30 animate-pop transition-shadow hover:shadow-xl hover:shadow-black/40" : "relative w-full shadow-none"
+        isCanvas ? "absolute shadow-lg shadow-black/30 animate-pop transition-[transform,box-shadow] duration-200 hover:shadow-xl hover:shadow-black/40 hover:-translate-y-0.5 will-change-transform" : "relative w-full shadow-none"
       }`}
       style={!isCanvas ? ({
         ["--accent" as string]: theme.accent,
@@ -238,6 +262,8 @@ export function Module({
         left: layout.x,
         top: layout.y,
         width: layout.width,
+        // Staggered entrance so a batch of tools cascades in rather than popping at once.
+        animationDelay: `${Math.min(index, 8) * 45}ms`,
         // Cards size to their content (no wasted space); a manual resize sets an
         // explicit taller min-height via layout.height when the user wants it.
         minHeight: collapsed || !layout.height ? undefined : layout.height,
