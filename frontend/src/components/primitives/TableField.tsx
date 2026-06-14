@@ -10,7 +10,11 @@ interface Props {
 
 export function TableField({ spec, value, onChange }: Props) {
   const cols = spec.columns?.length ? spec.columns : ["Item", "Value"];
-  const rows = Array.isArray(value) ? value : [];
+  // Normalise to string[][] — stale state from a type conversion (or odd model
+  // output) can hand us non-array rows, which would crash the cell spread below.
+  const rows: string[][] = (Array.isArray(value) ? value : []).map((row) =>
+    Array.isArray(row) ? row.map((cell) => (cell == null ? "" : String(cell))) : [],
+  );
 
   const setCell = (r: number, c: number, val: string) => {
     const next = rows.map((row) => [...row]);

@@ -13,6 +13,7 @@ interface Props {
   onModuleSelectForRefine: (id: string) => void;
   selectedId?: string | null;
   onModuleSelect: (id: string | null) => void;
+  onModuleEdit: (id: string) => void;
   onModuleExpand: (id: string) => void;
   activePageId?: string;
   focusRequest?: { id: string; n: number };
@@ -69,6 +70,7 @@ export function Canvas({
   onModuleSelectForRefine,
   selectedId,
   onModuleSelect,
+  onModuleEdit,
   onModuleExpand,
   activePageId,
   focusRequest,
@@ -372,6 +374,7 @@ export function Canvas({
               onUndo={onModuleUndo}
               onSelectForRefine={onModuleSelectForRefine}
               onSelect={onModuleSelect}
+              onEdit={onModuleEdit}
               onExpand={onModuleExpand}
               onDragStart={handleModuleDragStart}
               onResizeStart={handleResizeStart}

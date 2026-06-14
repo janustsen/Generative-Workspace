@@ -49,6 +49,7 @@ interface Props {
   onUndo: (id: string) => void;
   onSelectForRefine: (id: string) => void;
   onSelect: (id: string) => void;
+  onEdit?: (id: string) => void;
   onDragStart: (e: React.PointerEvent, moduleId: string) => void;
   onResizeStart: (e: React.PointerEvent, moduleId: string) => void;
   onExpand?: (id: string) => void;
@@ -59,7 +60,7 @@ interface Props {
 
 export function Module({
   module, crossModuleValues, selected,
-  onChange, onDelete, onUndo, onSelectForRefine, onSelect, onDragStart, onResizeStart,
+  onChange, onDelete, onUndo, onSelectForRefine, onSelect, onEdit, onDragStart, onResizeStart,
   onExpand, variant = "canvas", index = 0, onMeasure,
 }: Props) {
   const isCanvas = variant === "canvas";
@@ -332,7 +333,7 @@ export function Module({
               <button type="button" onClick={() => onExpand(module.id)} className={iconBtn}
                 aria-label="Expand to full page" title="Open full page"><Icon name="maximize" size={13} /></button>
             )}
-            <button type="button" onClick={() => onSelect(module.id)} className={iconBtn}
+            <button type="button" onClick={() => (onEdit ?? onSelect)(module.id)} className={iconBtn}
               aria-label="Edit module" title="Edit in inspector"><Icon name="pen" size={14} /></button>
             <button type="button" onClick={() => onDelete(module.id)} className={`${iconBtn} hover:text-[var(--danger)]`}
               aria-label="Delete module"><Icon name="x" size={14} /></button>

@@ -14,10 +14,11 @@ interface Props {
   onUndo: (id: string) => void;
   onRefine: (id: string) => void;
   onSelect: (id: string) => void;
+  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-export function DetailView({ module, crossModuleValues, inspectorOpen, onClose, onChange, onUndo, onRefine, onSelect, onDelete }: Props) {
+export function DetailView({ module, crossModuleValues, inspectorOpen, onClose, onChange, onUndo, onRefine, onSelect, onEdit, onDelete }: Props) {
   const theme = resolveAccent(module.config.accent, module.config.title);
   const icon = resolveIconName(module.config.icon, module.config.title);
   return (
@@ -45,6 +46,7 @@ export function DetailView({ module, crossModuleValues, inspectorOpen, onClose, 
             onUndo={onUndo}
             onSelectForRefine={onRefine}
             onSelect={onSelect}
+            onEdit={onEdit}
             onDragStart={() => {}}
             onResizeStart={() => {}}
           />

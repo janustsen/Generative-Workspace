@@ -78,6 +78,9 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [refineTarget, setRefineTarget] = useState<StoredModule | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The inspector (side popup) is intentionally separate from selection: clicking
+  // a module only selects/highlights it; the inspector opens solely via the pen.
+  const [inspectorId, setInspectorId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [convoOpen, setConvoOpen] = useState(false);
@@ -164,6 +167,7 @@ export default function Home() {
     if (!activePageId) return;
     setModules([]);
     setSelectedId(null);
+    setInspectorId(null);
     setDetailId(null);
     api
       .listModules(activePageId)
@@ -220,6 +224,7 @@ export default function Home() {
   const handleDeleteModule = useCallback((id: string) => {
     setModules((prev) => prev.filter((m) => m.id !== id));
     setSelectedId((cur) => (cur === id ? null : cur));
+    setInspectorId((cur) => (cur === id ? null : cur));
     void api.deleteModule(id).catch((err) => console.error("Failed to delete module", err));
   }, []);
 
@@ -334,6 +339,7 @@ export default function Home() {
       const dup = await api.duplicateModule(id);
       setModules((prev) => [...prev, dup]);
       setSelectedId(dup.id);
+      setInspectorId(dup.id);
     } catch (err) {
       console.error("Failed to duplicate module", err);
     }
@@ -342,11 +348,13 @@ export default function Home() {
   const handleArchiveModule = useCallback(async (id: string) => {
     setModules((prev) => prev.filter((m) => m.id !== id));
     setSelectedId((cur) => (cur === id ? null : cur));
+    setInspectorId((cur) => (cur === id ? null : cur));
     try { await api.archiveModule(id); } catch (err) { console.error("Failed to archive", err); }
   }, []);
 
   const openArchived = useCallback(async () => {
     setSelectedId(null);
+    setInspectorId(null);
     setConvoOpen(false);
     setSnapshotsOpen(false);
     try { setArchived(await api.listArchived()); } catch { setArchived([]); }
@@ -372,6 +380,7 @@ export default function Home() {
   const openSnapshots = useCallback(async () => {
     if (!activePageId) return;
     setSelectedId(null);
+    setInspectorId(null);
     setConvoOpen(false);
     setArchivedOpen(false);
     try { setSnapshots(await api.listSnapshots(activePageId)); } catch { setSnapshots([]); }
@@ -443,7 +452,7 @@ export default function Home() {
       if (mod && e.key === "/") { e.preventDefault(); setPromptFocus((n) => n + 1); return; }
       if (mod && e.key.toLowerCase() === "d" && selectedId) { e.preventDefault(); handleDuplicateModule(selectedId); return; }
       if (mod && e.key.toLowerCase() === "z" && selectedId && !typing) { e.preventDefault(); handleUndoModule(selectedId); return; }
-      if (e.key === "Escape") { setCmdOpen(false); setShortcutsOpen(false); setArchivedOpen(false); setSnapshotsOpen(false); setDetailId(null); setSelectedId(null); setConvoOpen(false); return; }
+      if (e.key === "Escape") { setCmdOpen(false); setShortcutsOpen(false); setArchivedOpen(false); setSnapshotsOpen(false); setDetailId(null); setSelectedId(null); setInspectorId(null); setConvoOpen(false); return; }
       if (!typing && !mod) {
         if (e.key === "?" || (e.shiftKey && e.key === "/")) setShortcutsOpen(true);
         else if (e.key.toLowerCase() === "f") setFitReq((n) => n + 1);
@@ -455,7 +464,7 @@ export default function Home() {
 
   const activeModules = modules.filter((m) => !m.page_id || m.page_id === activePageId);
   const activePage = pages.find((p) => p.id === activePageId) ?? null;
-  const selectedModule = activeModules.find((m) => m.id === selectedId) ?? null;
+  const inspectorModule = activeModules.find((m) => m.id === inspectorId) ?? null;
   const detailModule = activeModules.find((m) => m.id === detailId) ?? null;
 
   const statusText = loading
@@ -532,7 +541,7 @@ export default function Home() {
 
         <button
           type="button"
-          onClick={() => setConvoOpen((v) => { const n = !v; if (n) { setSelectedId(null); setArchivedOpen(false); setSnapshotsOpen(false); } return n; })}
+          onClick={() => setConvoOpen((v) => { const n = !v; if (n) { setSelectedId(null); setInspectorId(null); setArchivedOpen(false); setSnapshotsOpen(false); } return n; })}
           className={`shrink-0 flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition ${
             convoOpen
               ? "border-[var(--accent)] text-[var(--foreground)]"
@@ -557,7 +566,8 @@ export default function Home() {
         modules={activeModules}
         activePageId={activePageId ?? undefined}
         selectedId={selectedId}
-        onModuleSelect={(id) => { setSelectedId(id); if (id) { setConvoOpen(false); setArchivedOpen(false); setSnapshotsOpen(false); } }}
+        onModuleSelect={(id) => { setSelectedId(id); setInspectorId(null); if (id) { setConvoOpen(false); setArchivedOpen(false); setSnapshotsOpen(false); } }}
+        onModuleEdit={(id) => { setSelectedId(id); setInspectorId(id); setConvoOpen(false); setArchivedOpen(false); setSnapshotsOpen(false); }}
         onModuleExpand={handleExpand}
         onModuleChange={handleModuleChange}
         onModuleDelete={handleDeleteModule}
@@ -611,22 +621,23 @@ export default function Home() {
         <DetailView
           module={detailModule}
           crossModuleValues={{}}
-          inspectorOpen={!!selectedModule}
+          inspectorOpen={!!inspectorModule}
           onClose={() => setDetailId(null)}
           onChange={handleModuleChange}
           onUndo={handleUndoModule}
           onRefine={(id) => { handleSelectForRefine(id); setDetailId(null); }}
           onSelect={setSelectedId}
+          onEdit={(id) => { setSelectedId(id); setInspectorId(id); }}
           onDelete={(id) => { handleDeleteModule(id); setDetailId(null); }}
         />
       )}
 
-      {selectedModule && (
+      {inspectorModule && (
         <Inspector
-          module={selectedModule}
+          module={inspectorModule}
           onChange={handleModuleChange}
-          onClose={() => setSelectedId(null)}
-          onRefine={(id) => { handleSelectForRefine(id); setSelectedId(null); }}
+          onClose={() => setInspectorId(null)}
+          onRefine={(id) => { handleSelectForRefine(id); setInspectorId(null); }}
           onDelete={(id) => { handleDeleteModule(id); }}
           onDuplicate={handleDuplicateModule}
           onArchive={handleArchiveModule}

@@ -39,6 +39,9 @@ export function Inspector({ module, onChange, onClose, onRefine, onDelete, onDup
   const [draft, setDraft] = useState<Draft>(() => fromModule(module));
   const [dragId, setDragId] = useState<string | null>(null);
   const timer = useRef<number | null>(null);
+  // Field ids whose type changed — their stored value is from the old type and
+  // is dropped on the next save so the new renderer starts from a clean default.
+  const resetIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setDraft(fromModule(module));
@@ -72,6 +75,12 @@ export function Inspector({ module, onChange, onClose, onRefine, onDelete, onDup
         automations: d.automations,
         columns: d.columns,
       };
+      if (resetIds.current.size) {
+        const state = { ...(module.config.state ?? {}) };
+        for (const id of resetIds.current) delete state[id];
+        config.state = state;
+        resetIds.current.clear();
+      }
       timer.current = window.setTimeout(async () => {
         try {
           const saved = await api.patchModule(module.id, config);
@@ -198,7 +207,10 @@ export function Inspector({ module, onChange, onClose, onRefine, onDelete, onDup
                   value={c.type}
                   ariaLabel="Field type"
                   options={COMPONENT_TYPES.map((t) => ({ value: t.type, label: t.label }))}
-                  onChange={(v) => update((d) => ({ ...d, components: d.components.map((x) => x.id === c.id ? convertType(x, v as ComponentType) : x) }), true)}
+                  onChange={(v) => {
+                    if (v !== c.type) resetIds.current.add(c.id);
+                    update((d) => ({ ...d, components: d.components.map((x) => x.id === c.id ? convertType(x, v as ComponentType) : x) }), true);
+                  }}
                 />
                 {draft.columns === 2 && (
                   <Select

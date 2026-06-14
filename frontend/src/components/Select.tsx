@@ -39,14 +39,21 @@ export function Select({ value, options, onChange, className, ariaLabel }: Props
       if (btnRef.current?.contains(e.target as Node) || menuRef.current?.contains(e.target as Node)) return;
       setOpen(false);
     };
-    const reposition = () => setOpen(false);
+    // Close when the page/panel scrolls (the fixed menu would otherwise detach
+    // from its button) — but NOT when the menu's own option list scrolls, so
+    // long dropdowns stay open while you scroll to a lower option.
+    const onScroll = (e: Event) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    const onResize = () => setOpen(false);
     document.addEventListener("mousedown", close);
-    window.addEventListener("scroll", reposition, true);
-    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("mousedown", close);
-      window.removeEventListener("scroll", reposition, true);
-      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
     };
   }, [open]);
 
