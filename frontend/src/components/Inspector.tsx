@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { COMPONENT_TYPES, makeComponent } from "@/lib/componentFactory";
 import { ACCENTS, ACCENT_NAMES, ICON_CHOICES, resolveAccent, resolveIconName } from "@/lib/theme";
 import { Icon } from "./Icon";
+import { Select } from "./Select";
 
 interface Props {
   module: StoredModule;
@@ -191,14 +192,22 @@ export function Inspector({ module, onChange, onClose, onRefine, onDelete, onDup
                   onClick={() => update((d) => ({ ...d, components: d.components.filter((x) => x.id !== c.id), summary_component_id: d.summary_component_id === c.id ? null : d.summary_component_id }), true)}
                   className="text-[var(--muted)] hover:text-[var(--danger)] text-xs shrink-0" aria-label={`Remove ${c.label}`}>✕</button>
               </div>
-              <select
-                value={c.type}
-                onChange={(e) => update((d) => ({ ...d, components: d.components.map((x) => x.id === c.id ? convertType(x, e.target.value as ComponentType) : x) }), true)}
-                className="bg-[var(--surface)] border border-[var(--border)] rounded text-xs px-1.5 py-1 text-[var(--muted)] ml-4"
-                aria-label="Field type"
-              >
-                {COMPONENT_TYPES.map((t) => <option key={t.type} value={t.type}>{t.label}</option>)}
-              </select>
+              <div className="ml-4 flex items-center gap-1.5 flex-wrap">
+                <Select
+                  value={c.type}
+                  ariaLabel="Field type"
+                  options={COMPONENT_TYPES.map((t) => ({ value: t.type, label: t.label }))}
+                  onChange={(v) => update((d) => ({ ...d, components: d.components.map((x) => x.id === c.id ? convertType(x, v as ComponentType) : x) }), true)}
+                />
+                {draft.columns === 2 && (
+                  <Select
+                    value={c.span ?? "auto"}
+                    ariaLabel="Field width"
+                    options={[{ value: "auto", label: "Auto width" }, { value: "half", label: "Half width" }, { value: "full", label: "Full width" }]}
+                    onChange={(v) => update((d) => ({ ...d, components: d.components.map((x) => x.id === c.id ? { ...x, span: v === "auto" ? null : (v as "half" | "full") } : x) }), true)}
+                  />
+                )}
+              </div>
             </div>
           ))}
           {draft.components.length === 0 && <p className="text-xs text-[var(--muted)] italic">No fields. Add one below.</p>}
@@ -218,17 +227,12 @@ export function Inspector({ module, onChange, onClose, onRefine, onDelete, onDup
             <div key={a.id} className="rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] p-2 flex flex-col gap-1.5 text-xs">
               <div className="flex items-center gap-1 flex-wrap">
                 <span className="text-[var(--muted)]">When</span>
-                <select value={a.when_id} onChange={(e) => update((d) => ({ ...d, automations: d.automations.map((x) => x.id === a.id ? { ...x, when_id: e.target.value } : x) }), true)}
-                  className="bg-[var(--surface)] border border-[var(--border)] rounded px-1 py-0.5 max-w-[90px]">
-                  {draft.components.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                </select>
-                <select value={a.when} onChange={(e) => update((d) => ({ ...d, automations: d.automations.map((x) => x.id === a.id ? { ...x, when: e.target.value as Automation["when"] } : x) }), true)}
-                  className="bg-[var(--surface)] border border-[var(--border)] rounded px-1 py-0.5">
-                  <option value="checked">is checked</option>
-                  <option value="changes">changes</option>
-                  <option value="over">goes over</option>
-                  <option value="under">goes under</option>
-                </select>
+                <Select value={a.when_id} ariaLabel="When field" className="max-w-[96px]"
+                  options={draft.components.map((c) => ({ value: c.id, label: c.label }))}
+                  onChange={(v) => update((d) => ({ ...d, automations: d.automations.map((x) => x.id === a.id ? { ...x, when_id: v } : x) }), true)} />
+                <Select value={a.when} ariaLabel="Condition"
+                  options={[{ value: "checked", label: "is checked" }, { value: "changes", label: "changes" }, { value: "over", label: "goes over" }, { value: "under", label: "goes under" }]}
+                  onChange={(v) => update((d) => ({ ...d, automations: d.automations.map((x) => x.id === a.id ? { ...x, when: v as Automation["when"] } : x) }), true)} />
                 {(a.when === "over" || a.when === "under") && (
                   <input type="number" value={a.when_value ?? ""} onChange={(e) => update((d) => ({ ...d, automations: d.automations.map((x) => x.id === a.id ? { ...x, when_value: e.target.value === "" ? null : Number(e.target.value) } : x) }))}
                     className="w-14 bg-[var(--surface)] border border-[var(--border)] rounded px-1 py-0.5" placeholder="0" />
@@ -236,15 +240,12 @@ export function Inspector({ module, onChange, onClose, onRefine, onDelete, onDup
               </div>
               <div className="flex items-center gap-1 flex-wrap">
                 <span className="text-[var(--muted)]">then</span>
-                <select value={a.then} onChange={(e) => update((d) => ({ ...d, automations: d.automations.map((x) => x.id === a.id ? { ...x, then: e.target.value as Automation["then"] } : x) }), true)}
-                  className="bg-[var(--surface)] border border-[var(--border)] rounded px-1 py-0.5">
-                  <option value="increment">add 1 to</option>
-                  <option value="flag">flag red</option>
-                </select>
-                <select value={a.then_id} onChange={(e) => update((d) => ({ ...d, automations: d.automations.map((x) => x.id === a.id ? { ...x, then_id: e.target.value } : x) }), true)}
-                  className="bg-[var(--surface)] border border-[var(--border)] rounded px-1 py-0.5 max-w-[90px]">
-                  {draft.components.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                </select>
+                <Select value={a.then} ariaLabel="Action"
+                  options={[{ value: "increment", label: "add 1 to" }, { value: "flag", label: "flag red" }]}
+                  onChange={(v) => update((d) => ({ ...d, automations: d.automations.map((x) => x.id === a.id ? { ...x, then: v as Automation["then"] } : x) }), true)} />
+                <Select value={a.then_id} ariaLabel="Target field" className="max-w-[96px]"
+                  options={draft.components.map((c) => ({ value: c.id, label: c.label }))}
+                  onChange={(v) => update((d) => ({ ...d, automations: d.automations.map((x) => x.id === a.id ? { ...x, then_id: v } : x) }), true)} />
                 <button type="button" onClick={() => update((d) => ({ ...d, automations: d.automations.filter((x) => x.id !== a.id) }), true)}
                   className="ml-auto text-[var(--muted)] hover:text-[var(--danger)]" aria-label="Remove rule">✕</button>
               </div>

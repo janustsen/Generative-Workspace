@@ -3,8 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import type { ModuleConfig, StoredModule } from "@/lib/types";
-import { resolveAccent, resolveIconName } from "@/lib/theme";
 import { Icon } from "./Icon";
+import { Module } from "./Module";
+
+const NOW = new Date().toISOString();
+const noop = () => {};
 
 interface Props {
   onModule: (m: StoredModule) => void;
@@ -89,7 +92,14 @@ export function PromptBar({ onModule, activePageId, refineTarget, onRefineModule
     setLoading(true);
     setError(null);
     try {
-      if (isRefining && refineTarget && onRefineModule) {
+      if (previews.length > 0 && !isRefining && !file) {
+        // Talk to the preview: refine the proposed tools before adding them.
+        const combined = `${lastPromptRef.current} — ${v}`;
+        const result = await api.previewModules(combined, activePageId);
+        if (result.question) setPendingQuestion(result.question);
+        else if (result.previews?.length) { setPreviews(result.previews); lastPromptRef.current = combined; }
+        setPrompt("");
+      } else if (isRefining && refineTarget && onRefineModule) {
         const updated = await api.refineModule(refineTarget.id, v);
         onRefineModule(updated);
         setPrompt("");
@@ -146,6 +156,8 @@ export function PromptBar({ onModule, activePageId, refineTarget, onRefineModule
   const addOne = async (i: number) => { await addConfigs([previews[i]]); setPreviews((p) => p.filter((_, idx) => idx !== i)); };
   const dismissOne = (i: number) => setPreviews((p) => p.filter((_, idx) => idx !== i));
   const dismissAll = () => setPreviews([]);
+  // Inline edits to a preview (typing into its fields) flow back into the config.
+  const updatePreview = (i: number, m: StoredModule) => setPreviews((p) => p.map((c, idx) => (idx === i ? m.config : c)));
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -154,21 +166,26 @@ export function PromptBar({ onModule, activePageId, refineTarget, onRefineModule
     }
   };
 
+  const previewing = previews.length > 0 && !isRefining && !file;
   const placeholder = pendingQuestion
     ? `${pendingQuestion}`
-    : isRefining
-      ? "Describe what to change — e.g. add a rest day checkbox"
-      : "Describe what you want to organize — e.g. track my workouts";
+    : previewing
+      ? "Adjust these — e.g. make the budget a chart, add a notes field"
+      : isRefining
+        ? "Describe what to change — e.g. add a rest day checkbox"
+        : "Describe what you want to organize — e.g. track my workouts";
 
   const buttonLabel = loading
-    ? (isRefining ? "Refining…" : file ? "Building…" : "Generating…")
-    : isRefining
+    ? (isRefining ? "Refining…" : file ? "Building…" : previewing ? "Refining…" : "Generating…")
+    : previewing
       ? "Refine"
-      : file
-        ? "Build"
-        : pendingQuestion
-          ? "Answer"
-          : "Generate";
+      : isRefining
+        ? "Refine"
+        : file
+          ? "Build"
+          : pendingQuestion
+            ? "Answer"
+            : "Generate";
 
   return (
     <form
@@ -178,10 +195,10 @@ export function PromptBar({ onModule, activePageId, refineTarget, onRefineModule
       <div className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur shadow-2xl shadow-black/40 overflow-hidden">
 
         {previews.length > 0 && (
-          <div className="flex flex-col gap-2 px-3 pt-3 pb-1 max-h-[55vh] overflow-y-auto">
+          <div className="flex flex-col gap-3 px-3 pt-3 pb-1 max-h-[60vh] overflow-y-auto">
             <div className="flex items-center gap-2 px-1">
               <span className="text-[10px] uppercase tracking-wide text-[var(--muted)] font-mono">
-                {previews.length} tool{previews.length === 1 ? "" : "s"} proposed — preview
+                {previews.length} tool{previews.length === 1 ? "" : "s"} proposed — preview &amp; edit
               </span>
               <button type="button" onClick={addAll}
                 className="ml-auto rounded-md bg-[var(--accent)] text-[var(--accent-fg)] px-2.5 py-1 text-xs font-medium hover:brightness-110 transition">
@@ -190,28 +207,26 @@ export function PromptBar({ onModule, activePageId, refineTarget, onRefineModule
               <button type="button" onClick={dismissAll}
                 className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition">Dismiss</button>
             </div>
-            {previews.map((cfg, i) => {
-              const theme = resolveAccent(cfg.accent, cfg.title);
-              const iconName = resolveIconName(cfg.icon, cfg.title);
-              return (
-                <div key={i} className="rounded-xl border p-2.5 animate-pop"
-                  style={{ ["--accent" as string]: theme.accent, ["--accent-fg" as string]: theme.accentFg, borderColor: "color-mix(in srgb, var(--accent) 30%, var(--border))" } as React.CSSProperties}>
-                  <div className="flex items-center gap-2">
-                    <span className="shrink-0 grid place-items-center w-6 h-6 rounded-md" style={{ background: "color-mix(in srgb, var(--accent) 20%, transparent)", color: "var(--accent)" }}><Icon name={iconName} size={15} /></span>
-                    <span className="flex-1 min-w-0 truncate text-sm font-medium">{cfg.title}</span>
-                    <button type="button" onClick={() => addOne(i)}
-                      className="rounded-md border border-[var(--accent)] text-[var(--accent)] px-2 py-0.5 text-xs hover:bg-[var(--accent)] hover:text-[var(--accent-fg)] transition">Add</button>
-                    <button type="button" onClick={() => dismissOne(i)}
-                      className="text-[var(--muted)] hover:text-[var(--danger)] text-xs" aria-label="Dismiss">✕</button>
-                  </div>
-                  <div className="flex flex-wrap gap-1 mt-1.5">
-                    {cfg.components.slice(0, 10).map((c, ci) => (
-                      <span key={ci} className="rounded-full bg-[var(--surface-elevated)] px-2 py-0.5 text-[10px] text-[var(--muted)]">{c.label}</span>
-                    ))}
-                  </div>
+            {previews.map((cfg, i) => (
+              <div key={i} className="animate-pop">
+                <Module
+                  variant="preview"
+                  module={{ id: `preview-${i}`, config: cfg, created_at: NOW, updated_at: NOW }}
+                  crossModuleValues={{}}
+                  selected={false}
+                  onChange={(m) => updatePreview(i, m)}
+                  onDelete={noop} onUndo={noop} onSelectForRefine={noop} onSelect={noop}
+                  onDragStart={noop} onResizeStart={noop}
+                />
+                <div className="flex items-center gap-2 mt-1 px-1">
+                  <span className="text-[10px] text-[var(--muted)]">Edit fields inline, then</span>
+                  <button type="button" onClick={() => addOne(i)}
+                    className="ml-auto rounded-md border border-[var(--accent)] text-[var(--accent)] px-2.5 py-0.5 text-xs hover:bg-[var(--accent)] hover:text-[var(--accent-fg)] transition">Add to canvas</button>
+                  <button type="button" onClick={() => dismissOne(i)}
+                    className="text-[var(--muted)] hover:text-[var(--danger)] text-xs" aria-label="Dismiss">Dismiss</button>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
 

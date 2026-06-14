@@ -51,8 +51,14 @@ _COMPONENT_DOCS = """Available component types (use exactly these "type" values)
 - checklist    — checkable items w/ progress. Fields: id, label, type. Use for packing, onboarding, routines.
 - gallery      — a grid of image thumbnails. Fields: id, label, type. Use for moodboards, wishlists, inspiration.
 - note         — a multi-line text area.      Fields: id, label, type, placeholder?. Use for journals, descriptions, reflections.
+- tracker      — MULTI-SUBJECT tracker; EACH row has its OWN streak + completion%, and the
+                 tick resets each period. Fields: id, label, type, period ("day"|"week"), goal?.
+                 PREFER THIS over a lone checkbox+streak whenever the user tracks SEVERAL
+                 things over time (habits, routines, daily disciplines, per-person check-ins) —
+                 it individualises the metrics per subject instead of one shared number.
 
 Also: set "columns": 2 on a module to lay its components out in a TWO-COLUMN grid (great for dashboards and forms). Wide components (section, divider, table, chart, calendar, kanban, heatmap, timeline, gallery, note) automatically span both columns.
+AVOID WASTED SPACE: if a tool has 4+ short fields (number/text/kpi/rating/slider/date/dropdown/color), set "columns": 2 so it reads as a compact grid instead of a tall sparse column. Don't pad a tool with empty or redundant fields. Keep one clear primary block per tool.
 
 CHOOSE COMPONENTS AND A LAYOUT THAT MATCH THE SUBJECT — vary the FORMAT, don't always make a single vertical form. A task pipeline → a kanban board; a habit → a heatmap; a dashboard → columns:2 with kpis + chart + gauge; a journal → a note + heatmap; a packing list → a checklist.
 

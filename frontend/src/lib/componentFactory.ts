@@ -30,6 +30,7 @@ export const COMPONENT_TYPES: { type: ComponentType; label: string }[] = [
   { type: "checklist", label: "Checklist" },
   { type: "gallery", label: "Gallery" },
   { type: "note", label: "Note" },
+  { type: "tracker", label: "Tracker" },
 ];
 
 let counter = 0;
@@ -96,5 +97,7 @@ export function makeComponent(type: ComponentType, label?: string): Component {
       return { id, type, label: label ?? "Gallery" };
     case "note":
       return { id, type, label: label ?? "Notes" };
+    case "tracker":
+      return { id, type, label: label ?? "Tracker", period: "day" };
   }
 }

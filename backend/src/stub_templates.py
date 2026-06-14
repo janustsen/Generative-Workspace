@@ -433,13 +433,19 @@ def _workflow_board():
 
 
 # --- Heatmaps / streaks ----------------------------------------------------
+def _trk(id, label, period="day", goal=None):
+    c = {"id": id, "type": "tracker", "label": label, "period": period}
+    if goal:
+        c["goal"] = goal
+    return c
+
+
 def _habit_grid():
-    return _mod("Habit Grid", "repeat", "emerald", [
-        _t("habit", "Habit", "e.g. Meditate"),
-        _hm("days", "Daily check-ins"),
-        _kpi("streak", "Current streak", "days"),
-        _ckl("today", "Today's habits"),
-    ], "days")
+    # Each habit gets its OWN streak + completion%, and the tick resets daily.
+    return _mod("Habit Tracker", "repeat", "emerald", [
+        _trk("habits", "Habits", "day"),
+        _hm("overall", "Overall consistency"),
+    ], "habits")
 
 def _mood_heatmap():
     return _mod("Mood Heatmap", "smile", "rose", [
@@ -839,7 +845,7 @@ _ROUTES_V2: list[tuple[tuple[str, ...], object]] = [
     (("idea board", "brainstorm"), _idea_board),
     (("shopping by store", "grocery board"), _shopping_board),
     (("workflow", "pipeline"), _workflow_board),
-    (("habit grid", "habit heatmap", "habit tracker"), _habit_grid),
+    (("habit", "routine", "streak", "daily check", "habit grid"), _habit_grid),
     (("mood",), _mood_heatmap),
     (("meditat", "mindful"), _meditation),
     (("writing", "write every"), _writing_streak),

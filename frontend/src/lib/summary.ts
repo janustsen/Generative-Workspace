@@ -107,5 +107,9 @@ function summarizeComponent(
     }
     case "note":
       return raw ? String(raw).slice(0, 40) : c.label;
+    case "tracker": {
+      const rows = raw && typeof raw === "object" && Array.isArray((raw as { rows?: unknown[] }).rows) ? (raw as { rows: unknown[] }).rows : [];
+      return `${rows.length} tracked`;
+    }
   }
 }

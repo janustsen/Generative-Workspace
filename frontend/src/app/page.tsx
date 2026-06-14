@@ -6,6 +6,7 @@ import { ConversationPanel } from "@/components/ConversationPanel";
 import { ArchivedPanel } from "@/components/ArchivedPanel";
 import { SnapshotsPanel } from "@/components/SnapshotsPanel";
 import { Inspector } from "@/components/Inspector";
+import { DetailView } from "@/components/DetailView";
 import { Sidebar } from "@/components/Sidebar";
 import { PromptBar } from "@/components/PromptBar";
 import { AppearanceMenu } from "@/components/AppearanceMenu";
@@ -77,6 +78,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [refineTarget, setRefineTarget] = useState<StoredModule | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [convoOpen, setConvoOpen] = useState(false);
   const [seed, setSeed] = useState<string | null>(null);
@@ -162,6 +164,7 @@ export default function Home() {
     if (!activePageId) return;
     setModules([]);
     setSelectedId(null);
+    setDetailId(null);
     api
       .listModules(activePageId)
       .then((list) => {
@@ -194,6 +197,7 @@ export default function Home() {
             // Cap width so new tools tile cleanly without overlapping (wide tables
             // scroll horizontally; the user can still resize bigger afterward).
             width: Math.min(m.config.layout.width || 372, 372),
+            height: 0, // content-sized — no wasted vertical space until resized
             x: X0 + (i % PER_ROW) * GAP_X,
             y: Y0 + Math.floor(i / PER_ROW) * GAP_Y,
           },
@@ -233,6 +237,14 @@ export default function Home() {
   );
 
   const handleClearRefine = useCallback(() => setRefineTarget(null), []);
+
+  const handleExpand = useCallback((id: string) => {
+    setDetailId(id);
+    setSelectedId(id);
+    setConvoOpen(false);
+    setArchivedOpen(false);
+    setSnapshotsOpen(false);
+  }, []);
 
   const handleRefinedModule = useCallback((updated: StoredModule) => {
     setModules((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
@@ -430,7 +442,7 @@ export default function Home() {
       if (mod && e.key === "/") { e.preventDefault(); setPromptFocus((n) => n + 1); return; }
       if (mod && e.key.toLowerCase() === "d" && selectedId) { e.preventDefault(); handleDuplicateModule(selectedId); return; }
       if (mod && e.key.toLowerCase() === "z" && selectedId && !typing) { e.preventDefault(); handleUndoModule(selectedId); return; }
-      if (e.key === "Escape") { setCmdOpen(false); setShortcutsOpen(false); setArchivedOpen(false); setSelectedId(null); setConvoOpen(false); return; }
+      if (e.key === "Escape") { setCmdOpen(false); setShortcutsOpen(false); setArchivedOpen(false); setSnapshotsOpen(false); setDetailId(null); setSelectedId(null); setConvoOpen(false); return; }
       if (!typing && !mod) {
         if (e.key === "?" || (e.shiftKey && e.key === "/")) setShortcutsOpen(true);
         else if (e.key.toLowerCase() === "f") setFitReq((n) => n + 1);
@@ -443,6 +455,7 @@ export default function Home() {
   const activeModules = modules.filter((m) => !m.page_id || m.page_id === activePageId);
   const activePage = pages.find((p) => p.id === activePageId) ?? null;
   const selectedModule = activeModules.find((m) => m.id === selectedId) ?? null;
+  const detailModule = activeModules.find((m) => m.id === detailId) ?? null;
 
   const statusText = loading
     ? "Loading…"
@@ -544,6 +557,7 @@ export default function Home() {
         activePageId={activePageId ?? undefined}
         selectedId={selectedId}
         onModuleSelect={(id) => { setSelectedId(id); if (id) { setConvoOpen(false); setArchivedOpen(false); setSnapshotsOpen(false); } }}
+        onModuleExpand={handleExpand}
         onModuleChange={handleModuleChange}
         onModuleDelete={handleDeleteModule}
         onModuleUndo={handleUndoModule}
@@ -589,6 +603,20 @@ export default function Home() {
           onClose={() => setConvoOpen(false)}
           onClear={handleClearConversation}
           onReuse={handleReusePrompt}
+        />
+      )}
+
+      {detailModule && (
+        <DetailView
+          module={detailModule}
+          crossModuleValues={{}}
+          inspectorOpen={!!selectedModule}
+          onClose={() => setDetailId(null)}
+          onChange={handleModuleChange}
+          onUndo={handleUndoModule}
+          onRefine={(id) => { handleSelectForRefine(id); setDetailId(null); }}
+          onSelect={setSelectedId}
+          onDelete={(id) => { handleDeleteModule(id); setDetailId(null); }}
         />
       )}
 

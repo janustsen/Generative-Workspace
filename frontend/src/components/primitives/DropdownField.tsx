@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dropdown } from "@/lib/types";
+import { Select } from "../Select";
 
 interface Props {
   spec: Dropdown;
@@ -13,14 +14,13 @@ export function DropdownField({ spec, value, onChange }: Props) {
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-xs uppercase tracking-wide text-[var(--muted)]">{spec.label}</span>
-      <select
+      <Select
         value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40"
-      >
-        <option value="">Select…</option>
-        {opts.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
+        ariaLabel={spec.label}
+        className="w-full !bg-[var(--surface-elevated)] py-2 text-sm"
+        options={[{ value: "", label: "Select…" }, ...opts.map((o) => ({ value: o, label: o }))]}
+        onChange={onChange}
+      />
     </div>
   );
 }

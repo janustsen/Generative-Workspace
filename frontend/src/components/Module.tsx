@@ -33,10 +33,11 @@ import { GaugeField } from "./primitives/GaugeField";
 import { ChecklistField } from "./primitives/ChecklistField";
 import { GalleryField } from "./primitives/GalleryField";
 import { NoteField } from "./primitives/NoteField";
+import { TrackerField } from "./primitives/TrackerField";
 
 // In a 2-column module these span the full width rather than sit in one cell.
 const WIDE_TYPES = new Set<string>([
-  "section", "divider", "table", "chart", "calendar", "kanban", "heatmap", "timeline", "gallery", "note",
+  "section", "divider", "table", "chart", "calendar", "kanban", "heatmap", "timeline", "gallery", "note", "tracker",
 ]);
 
 interface Props {
@@ -50,12 +51,17 @@ interface Props {
   onSelect: (id: string) => void;
   onDragStart: (e: React.PointerEvent, moduleId: string) => void;
   onResizeStart: (e: React.PointerEvent, moduleId: string) => void;
+  onExpand?: (id: string) => void;
+  variant?: "canvas" | "detail" | "preview";
 }
 
 export function Module({
   module, crossModuleValues, selected,
   onChange, onDelete, onUndo, onSelectForRefine, onSelect, onDragStart, onResizeStart,
+  onExpand, variant = "canvas",
 }: Props) {
+  const isCanvas = variant === "canvas";
+  const preview = variant === "preview";
   const [state, setState] = useState<Record<string, unknown>>(module.config.state ?? {});
   const [collapsed, setCollapsed] = useState(false);
   const persistTimer = useRef<number | null>(null);
@@ -66,6 +72,11 @@ export function Module({
 
   const persistConfig = useCallback(
     async (config: ModuleConfig) => {
+      // Previews aren't persisted — just bubble the edited config to the parent.
+      if (preview) {
+        onChange({ ...module, config });
+        return;
+      }
       try {
         const saved = await api.patchModule(module.id, config);
         onChange(saved);
@@ -73,7 +84,7 @@ export function Module({
         console.error("Failed to persist module config", err);
       }
     },
-    [module.id, onChange],
+    [module.id, module, onChange, preview],
   );
 
   const schedulePersist = useCallback(
@@ -183,6 +194,8 @@ export function Module({
         return <GalleryField key={c.id} spec={c} value={(state[c.id] as string[]) ?? []} onChange={(v) => setField(c.id, v)} />;
       case "note":
         return <NoteField key={c.id} spec={c} value={(state[c.id] as string) ?? ""} onChange={(v) => setField(c.id, v)} />;
+      case "tracker":
+        return <TrackerField key={c.id} spec={c} value={(state[c.id] as { rows: { name: string; done: string[] }[] }) ?? { rows: [] }} onChange={(v) => setField(c.id, v)} />;
     }
   };
 
@@ -212,13 +225,22 @@ export function Module({
 
   return (
     <div
-      onMouseDown={() => onSelect(module.id)}
-      className="absolute rounded-2xl border bg-[var(--surface)] shadow-lg shadow-black/30 flex flex-col animate-pop transition-shadow hover:shadow-xl hover:shadow-black/40"
-      style={{
+      onMouseDown={isCanvas ? () => onSelect(module.id) : undefined}
+      className={`rounded-2xl border bg-[var(--surface)] flex flex-col ${
+        isCanvas ? "absolute shadow-lg shadow-black/30 animate-pop transition-shadow hover:shadow-xl hover:shadow-black/40" : "relative w-full shadow-none"
+      }`}
+      style={!isCanvas ? ({
+        ["--accent" as string]: theme.accent,
+        ["--accent-fg" as string]: theme.accentFg,
+        borderColor: "color-mix(in srgb, var(--accent) 28%, var(--border))",
+        ...densityVars,
+      } as React.CSSProperties) : ({
         left: layout.x,
         top: layout.y,
         width: layout.width,
-        minHeight: collapsed ? undefined : layout.height,
+        // Cards size to their content (no wasted space); a manual resize sets an
+        // explicit taller min-height via layout.height when the user wants it.
+        minHeight: collapsed || !layout.height ? undefined : layout.height,
         ["--accent" as string]: theme.accent,
         ["--accent-fg" as string]: theme.accentFg,
         borderColor: selected
@@ -227,35 +249,43 @@ export function Module({
         outline: selected ? "2px solid color-mix(in srgb, var(--accent) 55%, transparent)" : "none",
         outlineOffset: "2px",
         ...densityVars,
-      } as React.CSSProperties}
+      } as React.CSSProperties)}
     >
-      <div
-        className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-0 hover:opacity-100 transition-opacity flex items-end justify-end"
-        style={{ touchAction: "none" }}
-        onPointerDown={(e) => onResizeStart(e, module.id)}
-        aria-label="Resize module"
-        title="Resize"
-      >
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
-          <circle cx="6" cy="6" r="1" fill="currentColor" className="text-[var(--muted)]" />
-          <circle cx="3" cy="6" r="1" fill="currentColor" className="text-[var(--muted)]" />
-          <circle cx="6" cy="3" r="1" fill="currentColor" className="text-[var(--muted)]" />
-        </svg>
-      </div>
+      {isCanvas && (
+        <div
+          className="absolute bottom-1 right-1 w-4 h-4 cursor-se-resize opacity-0 hover:opacity-100 transition-opacity flex items-end justify-end"
+          style={{ touchAction: "none" }}
+          onPointerDown={(e) => onResizeStart(e, module.id)}
+          aria-label="Resize module"
+          title="Resize"
+        >
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
+            <circle cx="6" cy="6" r="1" fill="currentColor" className="text-[var(--muted)]" />
+            <circle cx="3" cy="6" r="1" fill="currentColor" className="text-[var(--muted)]" />
+            <circle cx="6" cy="3" r="1" fill="currentColor" className="text-[var(--muted)]" />
+          </svg>
+        </div>
+      )}
 
       <div
-        className="flex items-center gap-1.5 px-3 py-3 border-b border-[var(--border)] cursor-grab active:cursor-grabbing"
-        onPointerDown={(e) => {
+        className={`flex items-center gap-1.5 px-3 py-3 border-b border-[var(--border)] ${isCanvas ? "cursor-grab active:cursor-grabbing" : ""}`}
+        onPointerDown={!isCanvas ? undefined : (e) => {
           if ((e.target as HTMLElement).closest("button,input,select,textarea,a")) return;
           onDragStart(e, module.id);
         }}
+        onDoubleClick={isCanvas && onExpand ? (e) => {
+          if ((e.target as HTMLElement).closest("button,input,select,textarea,a")) return;
+          onExpand(module.id);
+        } : undefined}
       >
-        <button type="button" onClick={() => setCollapsed((v) => !v)} className={iconBtn}
-          aria-label={collapsed ? "Expand" : "Collapse"}>
-          <span className="inline-block transition-transform" style={{ transform: collapsed ? "rotate(-90deg)" : "none" }}>
-            <Icon name="chevronDown" size={14} />
-          </span>
-        </button>
+        {isCanvas && (
+          <button type="button" onClick={() => setCollapsed((v) => !v)} className={iconBtn}
+            aria-label={collapsed ? "Expand" : "Collapse"}>
+            <span className="inline-block transition-transform" style={{ transform: collapsed ? "rotate(-90deg)" : "none" }}>
+              <Icon name="chevronDown" size={14} />
+            </span>
+          </button>
+        )}
 
         <span className="shrink-0 grid place-items-center w-6 h-6 rounded-md leading-none select-none"
           style={{ background: "color-mix(in srgb, var(--accent) 20%, transparent)", color: "var(--accent)" }} aria-hidden>
@@ -266,14 +296,22 @@ export function Module({
           {title}
         </h3>
 
-        <button type="button" onClick={() => onUndo(module.id)} className={iconBtn}
-          aria-label="Undo last change" title="Undo last change"><Icon name="undo" size={14} /></button>
-        <button type="button" onClick={() => onSelectForRefine(module.id)} className={iconBtn}
-          aria-label="Refine with AI" title="Refine with AI"><Icon name="sparkles" size={14} /></button>
-        <button type="button" onClick={() => onSelect(module.id)} className={iconBtn}
-          aria-label="Edit module" title="Edit in inspector"><Icon name="pen" size={14} /></button>
-        <button type="button" onClick={() => onDelete(module.id)} className={`${iconBtn} hover:text-[var(--danger)]`}
-          aria-label="Delete module"><Icon name="x" size={14} /></button>
+        {!preview && (
+          <>
+            <button type="button" onClick={() => onUndo(module.id)} className={iconBtn}
+              aria-label="Undo last change" title="Undo last change"><Icon name="undo" size={14} /></button>
+            <button type="button" onClick={() => onSelectForRefine(module.id)} className={iconBtn}
+              aria-label="Refine with AI" title="Refine with AI"><Icon name="sparkles" size={14} /></button>
+            {isCanvas && onExpand && (
+              <button type="button" onClick={() => onExpand(module.id)} className={iconBtn}
+                aria-label="Expand to full page" title="Open full page"><Icon name="maximize" size={13} /></button>
+            )}
+            <button type="button" onClick={() => onSelect(module.id)} className={iconBtn}
+              aria-label="Edit module" title="Edit in inspector"><Icon name="pen" size={14} /></button>
+            <button type="button" onClick={() => onDelete(module.id)} className={`${iconBtn} hover:text-[var(--danger)]`}
+              aria-label="Delete module"><Icon name="x" size={14} /></button>
+          </>
+        )}
       </div>
 
       {collapsed ? (
@@ -291,8 +329,9 @@ export function Module({
                 {renderComponent(c)}
               </div>
             ) : renderComponent(c);
+            const wide = c.span === "full" || (c.span !== "half" && WIDE_TYPES.has(c.type));
             return (
-              <div key={c.id} className={`min-w-0 ${twoCol && WIDE_TYPES.has(c.type) ? "col-span-2" : ""}`}>
+              <div key={c.id} className={`min-w-0 ${twoCol && wide ? "col-span-2" : ""}`}>
                 {inner}
               </div>
             );

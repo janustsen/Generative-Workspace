@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 class ComponentBase(BaseModel):
     id: str
     label: str
+    span: str | None = None  # "full" | "half" — width placement in a 2-column module
 
 
 class TextInput(ComponentBase):
@@ -193,12 +194,21 @@ class Note(ComponentBase):
     placeholder: str | None = None
 
 
+class Tracker(ComponentBase):
+    """Multi-subject tracker: each row/subject has its OWN streak + completion,
+    and the 'today' tick resets each period. state[id] = {rows:[{name, done:[ISO]}]}.
+    Use for habit trackers, daily routines, per-person/per-item check-ins."""
+    type: Literal["tracker"] = "tracker"
+    period: Literal["day", "week"] = "day"
+    goal: int | None = None  # optional per-subject target (e.g. 30-day goal)
+
+
 Component = Annotated[
     Union[
         TextInput, NumberInput, Checkbox, Slider, ProgressBar, ListField, Metric,
         Rating, Tags, Kpi, DatePicker, Table, Calendar, Chart,
         Dropdown, ChoiceChips, ColorField, Sparkline, Ring, Timeline, Button,
-        Section, Divider, Kanban, Heatmap, Gauge, Checklist, Gallery, Note,
+        Section, Divider, Kanban, Heatmap, Gauge, Checklist, Gallery, Note, Tracker,
     ],
     Field(discriminator="type"),
 ]

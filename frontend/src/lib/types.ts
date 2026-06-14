@@ -27,12 +27,14 @@ export type ComponentType =
   | "gauge"
   | "checklist"
   | "gallery"
-  | "note";
+  | "note"
+  | "tracker";
 
 export interface ComponentBase {
   id: string;
   label: string;
   type: ComponentType;
+  span?: "full" | "half" | null;
 }
 
 export interface TextInput extends ComponentBase {
@@ -158,6 +160,7 @@ export interface Gauge extends ComponentBase { type: "gauge"; min: number; max: 
 export interface Checklist extends ComponentBase { type: "checklist"; }
 export interface Gallery extends ComponentBase { type: "gallery"; }
 export interface Note extends ComponentBase { type: "note"; placeholder?: string | null; }
+export interface Tracker extends ComponentBase { type: "tracker"; period?: "day" | "week"; goal?: number | null; }
 
 export type Component =
   | TextInput
@@ -188,7 +191,8 @@ export type Component =
   | Gauge
   | Checklist
   | Gallery
-  | Note;
+  | Note
+  | Tracker;
 
 export interface ModuleLayout {
   x: number;
