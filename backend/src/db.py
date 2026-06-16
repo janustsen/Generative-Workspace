@@ -77,6 +77,19 @@ CREATE TABLE IF NOT EXISTS snapshots (
 );
 CREATE INDEX IF NOT EXISTS idx_snapshots_session
     ON snapshots(session_id, page_id, created_at);
+-- Semantic generation cache / growing template library (see semantic_cache.py).
+-- Global (not per-session): every successful generation becomes a reusable template.
+CREATE TABLE IF NOT EXISTS gen_cache (
+    id           TEXT PRIMARY KEY,
+    kind         TEXT NOT NULL,
+    prompt       TEXT NOT NULL,
+    norm         TEXT NOT NULL,        -- normalised prompt for exact-match reuse
+    embedding    TEXT NOT NULL,        -- JSON array of floats (brute-force cosine; small N)
+    configs_json TEXT NOT NULL,        -- list[ModuleConfig] dicts
+    hits         INTEGER NOT NULL DEFAULT 0,
+    created_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_gen_cache_kind ON gen_cache(kind);
 """
 
 # Tracks which db file has had its schema ensured this process, so we re-run the
@@ -565,3 +578,37 @@ def undo_module(session_id: str, module_id: str) -> StoredModule | None:
         page_id=row["page_id"],
         archived=bool(row["archived"]),
     )
+
+
+# ── Generation cache / template library ──────────────────────────────────────
+
+def cache_rows(kind: str, limit: int = 1000) -> list[sqlite3.Row]:
+    """Most-recent cache entries for a kind (small N → brute-force cosine upstream)."""
+    with _conn() as c:
+        return c.execute(
+            "SELECT id, prompt, norm, embedding, configs_json FROM gen_cache "
+            "WHERE kind = ? ORDER BY created_at DESC LIMIT ?",
+            (kind, limit),
+        ).fetchall()
+
+
+def cache_add(kind: str, prompt: str, norm: str, embedding_json: str, configs_json: str) -> None:
+    with _conn() as c:
+        c.execute(
+            "INSERT INTO gen_cache (id, kind, prompt, norm, embedding, configs_json, hits, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+            (uuid.uuid4().hex, kind, prompt, norm, embedding_json, configs_json, _now()),
+        )
+
+
+def cache_hit(entry_id: str) -> None:
+    with _conn() as c:
+        c.execute("UPDATE gen_cache SET hits = hits + 1 WHERE id = ?", (entry_id,))
+
+
+def cache_stats() -> dict:
+    with _conn() as c:
+        row = c.execute(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(hits), 0) AS hits FROM gen_cache"
+        ).fetchone()
+    return {"entries": row["n"], "hits": row["hits"]}

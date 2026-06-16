@@ -6,11 +6,36 @@ that the frontend renders with its trusted component library.
 from __future__ import annotations
 
 import json
+import os
 
 from pydantic import ValidationError
 
 from src import llm
 from src.schema import ClarifyingQuestion, ModuleConfig, RefusalError
+
+
+class _InvalidOutput(Exception):
+    """The model returned unparseable/invalid JSON (not an explicit refusal).
+    These are retried; explicit refusals/questions are not."""
+
+
+_RETRY_NOTE = (
+    "\n\nIMPORTANT: your previous reply could not be parsed. Output ONLY valid JSON "
+    "in the exact required shape — no prose, no markdown, no code fences."
+)
+
+_MODULE_SCHEMA = ModuleConfig.model_json_schema()
+
+
+def _retry_count() -> int:
+    """Smaller/local models occasionally slip on strict JSON; one cheap retry
+    recovers most of those. Disabled in stub mode (no model call)."""
+    if llm.is_stub_mode():
+        return 0
+    try:
+        return max(0, int(os.environ.get("TRUS_LLM_MAX_RETRIES", "1")))
+    except ValueError:
+        return 1
 
 _COMPONENT_DOCS = """Available component types (use exactly these "type" values):
 - text_input   — free-text field.   Fields: id, label, type, placeholder?
@@ -186,7 +211,7 @@ def _parse_module_config(raw: str) -> ModuleConfig:
     try:
         data = json.loads(cleaned)
     except json.JSONDecodeError as e:
-        raise RefusalError(f"The model returned non-JSON output: {e.msg}") from e
+        raise _InvalidOutput(f"non-JSON output: {e.msg}") from e
     if isinstance(data, dict) and "refusal" in data:
         raise RefusalError(str(data["refusal"]))
     if isinstance(data, dict) and "question" in data and len(data) == 1:
@@ -194,15 +219,32 @@ def _parse_module_config(raw: str) -> ModuleConfig:
     try:
         return ModuleConfig.model_validate(data)
     except ValidationError as e:
-        raise RefusalError(f"The model produced an invalid ModuleConfig: {e.errors()[0]['msg']}") from e
+        raise _InvalidOutput(f"invalid ModuleConfig: {e.errors()[0]['msg']}") from e
+
+
+def _generate_validated(user: str, system: str, parse, *, schema: dict | None = None,
+                        expect_array: bool = False):
+    """Generate, parse, and retry once on unparseable output. Explicit refusals
+    and clarifying questions propagate immediately (they are not model slips)."""
+    last: Exception | None = None
+    for attempt in range(1 + _retry_count()):
+        msg = user if attempt == 0 else user + _RETRY_NOTE
+        raw = llm.generate(msg, system=system, schema=schema, expect_array=expect_array)
+        try:
+            return parse(raw)
+        except _InvalidOutput as e:
+            last = e
+    raise RefusalError(f"The model could not produce a valid result ({last}).")
 
 
 def generate_module(
     prompt: str,
     existing_modules: list[ModuleConfig] | None = None,
 ) -> ModuleConfig:
-    raw = llm.generate(_seeded_prompt(prompt, existing_modules), system=SYSTEM_PROMPT)
-    return _parse_module_config(raw)
+    return _generate_validated(
+        _seeded_prompt(prompt, existing_modules), SYSTEM_PROMPT, _parse_module_config,
+        schema=_MODULE_SCHEMA,
+    )
 
 
 DECOMPOSE_SYSTEM_PROMPT = f"""You are the Trus orchestrator. Turn the user's intent into the
@@ -240,10 +282,14 @@ Rules:
 """
 
 
-def _seeded_system(prompt: str, existing_modules: list[ModuleConfig] | None = None) -> str:
+def _seeded_system(prompt: str, existing_modules: list[ModuleConfig] | None = None,
+                   seed_override: list | None = None) -> str:
     from src.stub_templates import pick_system
 
-    seed = json.dumps(pick_system(prompt))
+    # seed_override (the nearest past generation from the semantic cache) makes the
+    # template library self-growing; fall back to the keyword builders when the
+    # cache has nothing close.
+    seed = json.dumps(seed_override if seed_override is not None else pick_system(prompt))
     context = _module_context(existing_modules or [])
     return (
         f"User request: {prompt}\n\n"
@@ -259,7 +305,7 @@ def _parse_modules(raw: str) -> list[ModuleConfig]:
     try:
         data = json.loads(cleaned)
     except json.JSONDecodeError as e:
-        raise RefusalError(f"The model returned non-JSON output: {e.msg}") from e
+        raise _InvalidOutput(f"non-JSON output: {e.msg}") from e
     if isinstance(data, dict):
         if "refusal" in data:
             raise RefusalError(str(data["refusal"]))
@@ -270,7 +316,7 @@ def _parse_modules(raw: str) -> list[ModuleConfig]:
         else:
             data = [data]  # a single config object
     if not isinstance(data, list):
-        raise RefusalError("The model did not return a list of modules.")
+        raise _InvalidOutput("did not return a list of modules.")
     out: list[ModuleConfig] = []
     for item in data:
         if not isinstance(item, dict) or "refusal" in item:
@@ -280,7 +326,7 @@ def _parse_modules(raw: str) -> list[ModuleConfig]:
         except ValidationError:
             continue
     if not out:
-        raise RefusalError("The model produced no valid modules.")
+        raise _InvalidOutput("produced no valid modules.")
     return out
 
 
@@ -292,8 +338,22 @@ def generate_modules(
     if llm.is_stub_mode():
         from src.stub_templates import pick_system
         return [ModuleConfig.model_validate(c) for c in pick_system(prompt)]
-    raw = llm.generate(_seeded_system(prompt, existing_modules), system=DECOMPOSE_SYSTEM_PROMPT)
-    return _parse_modules(raw)
+    from src import semantic_cache
+
+    # Cache: an (almost) identical past prompt is reused for free; a near match
+    # becomes the generation seed (so the library grows with real usage).
+    mode, cached = semantic_cache.lookup("system", prompt)
+    if mode == "hit" and cached:
+        try:
+            return [ModuleConfig.model_validate(c) for c in cached]
+        except ValidationError:
+            pass  # stale/incompatible cache entry → fall through and regenerate
+    result = _generate_validated(
+        _seeded_system(prompt, existing_modules, seed_override=cached if mode == "seed" else None),
+        DECOMPOSE_SYSTEM_PROMPT, _parse_modules, expect_array=True,
+    )
+    semantic_cache.store("system", prompt, [m.model_dump(mode="json") for m in result])
+    return result
 
 
 def generate_modules_from_file(
@@ -311,8 +371,19 @@ def generate_modules_from_file(
         + "\n\nA file is attached above. Read it and build tools shaped around its ACTUAL content — "
         "prefill state with the real values, dates, and rows you extract from it."
     )
-    raw = llm.generate_from_file(user_message, DECOMPOSE_SYSTEM_PROMPT, data, mime)
-    return _parse_modules(raw)
+    last: Exception | None = None
+    for attempt in range(1 + _retry_count()):
+        msg = user_message if attempt == 0 else user_message + _RETRY_NOTE
+        raw = llm.generate_from_file(msg, DECOMPOSE_SYSTEM_PROMPT, data, mime)
+        # A provider that can't read this file type returns "{}" — fall back to templates.
+        if not raw or raw.strip() in ("{}", ""):
+            from src.stub_templates import pick_system
+            return [ModuleConfig.model_validate(c) for c in pick_system(prompt)]
+        try:
+            return _parse_modules(raw)
+        except _InvalidOutput as e:
+            last = e
+    raise RefusalError(f"The model could not produce a valid result ({last}).")
 
 
 def refine_module(
@@ -330,8 +401,8 @@ def refine_module(
         f"{context}\n\n"
         f"Return the updated ModuleConfig JSON."
     )
-    raw = llm.generate(user_message, system=REFINE_SYSTEM_PROMPT)
-    return _parse_module_config(raw)
+    return _generate_validated(user_message, REFINE_SYSTEM_PROMPT, _parse_module_config,
+                              schema=_MODULE_SCHEMA)
 
 
 def synthesize_workspace(modules: list[ModuleConfig]) -> ModuleConfig:
@@ -351,5 +422,5 @@ def synthesize_workspace(modules: list[ModuleConfig]) -> ModuleConfig:
         f"Generate a dashboard ModuleConfig that surfaces the most important "
         f"cross-module insights using metric and progress_bar components."
     )
-    raw = llm.generate(user_message, system=SYNTHESIZE_SYSTEM_PROMPT)
-    return _parse_module_config(raw)
+    return _generate_validated(user_message, SYNTHESIZE_SYSTEM_PROMPT, _parse_module_config,
+                              schema=_MODULE_SCHEMA)

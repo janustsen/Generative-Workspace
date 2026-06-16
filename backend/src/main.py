@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from src import db
+from src import db, llm
 from src.routes import conversations, modules, pages
 
 
@@ -42,3 +42,16 @@ app.include_router(conversations.router, prefix="/api")
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/llm/status")
+def llm_status() -> dict:
+    """Which model backend is active (provider/model/base_url) — no secrets.
+    Lets you confirm a local/open-source model is wired before generating, and
+    shows how big the self-growing template cache is."""
+    info = llm.provider_info()
+    try:
+        info["cache"] = db.cache_stats()
+    except Exception:  # pragma: no cover - diagnostics must not error
+        pass
+    return info
