@@ -15,6 +15,8 @@ export interface AccentTheme {
 }
 
 export const ACCENTS: Record<string, AccentTheme> = {
+  // The one brand accent (ethos default). The rest are opt-in "refresh" colours.
+  blue: { name: "blue", accent: "#1e40af", accentFg: "#ffffff" },
   amber: { name: "amber", accent: "#d9a86c", accentFg: "#1c1b1a" },
   emerald: { name: "emerald", accent: "#84c89a", accentFg: "#10201a" },
   sky: { name: "sky", accent: "#8fbce0", accentFg: "#0f1a26" },
@@ -34,9 +36,11 @@ function hash(seed: string): number {
   return h;
 }
 
-export function resolveAccent(name?: string | null, seed = ""): AccentTheme {
-  if (name && ACCENTS[name]) return ACCENTS[name];
-  return ACCENTS[ACCENT_NAMES[hash(seed) % ACCENT_NAMES.length]];
+export function resolveAccent(_name?: string | null, _seed = ""): AccentTheme {
+  // Ethos: ONE accent. Every module is matte charcoal with the single deep-blue
+  // accent — per-module hues are not used in the default UI (saturated colour is
+  // reserved for opt-in module themes, a separate mechanism). Always blue.
+  return ACCENTS.blue;
 }
 
 // Title keyword → icon name (for modules with no icon, or to map intent).

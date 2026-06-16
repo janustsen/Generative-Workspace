@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Automation, Component, ComponentType, ModuleConfig, StoredModule } from "@/lib/types";
 import { api } from "@/lib/api";
 import { COMPONENT_TYPES, makeComponent } from "@/lib/componentFactory";
-import { ACCENTS, ACCENT_NAMES, ICON_CHOICES, resolveAccent, resolveIconName } from "@/lib/theme";
+import { ICON_CHOICES, resolveAccent, resolveIconName } from "@/lib/theme";
 import { Icon } from "./Icon";
 import { Select } from "./Select";
 import { FieldOptions } from "./FieldOptions";
@@ -135,15 +135,6 @@ export function Inspector({ module, onChange, onClose, onRefine, onDelete, onDup
 
         {/* Look */}
         <section className="flex flex-col gap-2.5">
-          <span className="text-[10px] uppercase tracking-wide text-[var(--muted)]">Colour</span>
-          <div className="flex flex-wrap gap-1.5">
-            {ACCENT_NAMES.map((name) => (
-              <button key={name} type="button" onClick={() => update((d) => ({ ...d, accent: name }), true)}
-                className="w-5 h-5 rounded-full transition hover:scale-110"
-                style={{ background: ACCENTS[name].accent, outline: (draft.accent ?? theme.name) === name ? "2px solid var(--foreground)" : "none", outlineOffset: "1px" }}
-                aria-label={`Set colour ${name}`} title={name} />
-            ))}
-          </div>
           <span className="text-[10px] uppercase tracking-wide text-[var(--muted)] mt-1">Icon</span>
           <div className="flex flex-wrap gap-1">
             {ICON_CHOICES.map((n) => (

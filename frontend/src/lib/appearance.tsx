@@ -72,7 +72,7 @@ function applyAccent(name: string) {
 }
 
 export function AppearanceProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>("system");
+  const [theme, setThemeState] = useState<ThemeMode>("dark");
   const [density, setDensityState] = useState<Density>("comfortable");
   const [accent, setAccentState] = useState<string>("");
   const [scale, setScaleState] = useState<Scale>("m");
@@ -81,7 +81,7 @@ export function AppearanceProvider({ children }: { children: React.ReactNode }) 
 
   // Hydrate from localStorage once (the no-FOUC script already applied them to the DOM).
   useEffect(() => {
-    setThemeState((localStorage.getItem(KEY_THEME) as ThemeMode) || "system");
+    setThemeState((localStorage.getItem(KEY_THEME) as ThemeMode) || "dark");
     setDensityState((localStorage.getItem(KEY_DENSITY) as Density) || "comfortable");
     setAccentState(localStorage.getItem(KEY_ACCENT) || "");
     setScaleState((localStorage.getItem(KEY_SCALE) as Scale) || "m");
@@ -149,7 +149,7 @@ export function useAppearance(): Appearance {
 
 /** Inline script that applies saved appearance before first paint (no flash). */
 export const NO_FOUC_SCRIPT = `(function(){try{
-var t=localStorage.getItem('${KEY_THEME}')||'system';
+var t=localStorage.getItem('${KEY_THEME}')||'dark';
 var d=localStorage.getItem('${KEY_DENSITY}')||'comfortable';
 var dark=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);
 var el=document.documentElement;

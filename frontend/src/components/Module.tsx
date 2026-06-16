@@ -257,7 +257,7 @@ export function Module({
       style={!isCanvas ? ({
         ["--accent" as string]: theme.accent,
         ["--accent-fg" as string]: theme.accentFg,
-        borderColor: "color-mix(in srgb, var(--accent) 28%, var(--border))",
+        borderColor: "var(--border)",
         ...densityVars,
       } as React.CSSProperties) : ({
         left: layout.x,
@@ -270,9 +270,7 @@ export function Module({
         minHeight: collapsed || !layout.height ? undefined : layout.height,
         ["--accent" as string]: theme.accent,
         ["--accent-fg" as string]: theme.accentFg,
-        borderColor: selected
-          ? "var(--accent)"
-          : "color-mix(in srgb, var(--accent) 28%, var(--border))",
+        borderColor: selected ? "var(--accent)" : "var(--border)",
         outline: selected ? "2px solid color-mix(in srgb, var(--accent) 55%, transparent)" : "none",
         outlineOffset: "2px",
         ...densityVars,

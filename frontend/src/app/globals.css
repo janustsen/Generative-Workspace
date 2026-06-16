@@ -1,16 +1,48 @@
 @import "tailwindcss";
 
-/* Light theme (default) — warm, paper-like. */
+/* ─────────────────────────────────────────────────────────────────────────
+   Trus design ethos (spec v1.9). Matte charcoal + matte grays, one deep-blue
+   accent (#1E40AF). No warm tones, no neon in the default UI — saturated colour
+   is confined to the opt-in per-module themes (see lib/theme.ts).
+   ───────────────────────────────────────────────────────────────────────── */
 :root {
-  --background: #f4efe6;
-  --surface: #fffdf8;
-  --surface-elevated: #ece5d7;
-  --foreground: #2b2825;
-  --muted: #8c8472;
-  --border: #e2dac9;
-  --accent: #c0894a;
-  --accent-fg: #fffaf0;
-  --danger: #c2544a;
+  /* Ethos tokens (theme-independent) — the canonical palette + scales. */
+  --bg-base: #181818;
+  --bg-surface: #202020;
+  --bg-elevated: #282828;
+  --bg-overlay: #101010;
+  --border-subtle: #2c2c2c;
+  --border-default: #383838;
+  --border-strong: #484848;
+  --white-matte: #f0efed;
+  --gray-light: #c8c7c4;
+  --gray-mid: #787673;
+  --gray-dark: #3a3a38;
+  --text-inverse: #181818;
+  --accent-blue: #1e40af;
+  --accent-blue-hover: #172e7c;
+  --accent-blue-glow: 0 6px 24px rgba(30, 64, 175, 0.4);
+  --status-err: #d7674f;
+  --status-ok: #5fae7e;
+  --glow-white: 0 0 24px rgba(240, 239, 237, 0.12), 0 0 60px rgba(240, 239, 237, 0.05);
+  --gap-xs: 4px; --gap-sm: 8px; --gap-md: 16px; --gap-lg: 24px; --gap-xl: 48px; --gap-2xl: 96px;
+  --radius-sm: 4px; --radius-md: 8px; --radius-lg: 14px;
+  --ease-snap: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-build: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 0.12s; --dur-base: 0.28s; --dur-slow: 0.55s; --dur-xslow: 0.9s;
+
+  /* Semantic chrome — LIGHT variant: matte neutral, same single blue accent
+     (kept on-brand: no warm, no neon). The app defaults to dark (below). */
+  --background: #faf9f7;
+  --surface: #ffffff;
+  --surface-elevated: #f0efed;
+  --foreground: #181818;
+  --muted: #6e6d6a;
+  --border: #e4e3e0;
+  --accent: #1e40af;
+  --accent-fg: #ffffff;
+  --danger: #d7674f;
 
   /* Density — consumed by module cards (comfortable by default). */
   --mod-pad: 1rem;
@@ -18,17 +50,17 @@
   --mod-head-pad: 0.75rem;
 }
 
-/* Dark theme — deep, comfortable charcoal. */
+/* Dark — the canonical Trus surface (matte charcoal, ethos default). */
 [data-theme="dark"] {
-  --background: #1c1b1a;
-  --surface: #26241f;
-  --surface-elevated: #2e2b25;
-  --foreground: #f1ece0;
-  --muted: #a09989;
-  --border: #3a3630;
-  --accent: #d9a86c;
-  --accent-fg: #1c1b1a;
-  --danger: #c97169;
+  --background: #181818;          /* bg-base */
+  --surface: #202020;             /* bg-surface */
+  --surface-elevated: #282828;    /* bg-elevated */
+  --foreground: #f0efed;          /* text-primary / white-matte */
+  --muted: #8f8e8b;               /* text-secondary */
+  --border: #383838;              /* border-default */
+  --accent: #1e40af;              /* the one accent — deep confident blue */
+  --accent-fg: #ffffff;           /* CTA text always white */
+  --danger: #d7674f;              /* status-err (muted terracotta) */
 }
 
 [data-density="compact"] {
@@ -61,6 +93,14 @@ body {
 html {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* Selection + a thin matte scrollbar (ethos: 5px, border-strong thumb). */
+::selection { background: rgba(240, 239, 237, 0.15); }
+[data-theme="light"] ::selection { background: rgba(30, 64, 175, 0.15); }
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }
 
 .canvas-grid {
   background-image: radial-gradient(
