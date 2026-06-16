@@ -264,3 +264,73 @@ def generate_from_file(user_message: str, system: Optional[str], data: bytes, mi
             return _openai_chat(messages, expect_array=True)
         return "{}"  # non-image documents aren't portable across openai-compat servers
     return _gemini_generate_file(user_message, system, data, mime)
+
+
+# ------------------------------------------------- vision (image → text) -----
+# A SEPARATE vision model (the text model may be text-only, e.g. Qwen3-4B). Used
+# by the Layout Studio screenshot importer. Config:
+#   TRUS_VISION_MODEL     e.g. qwen2.5vl:7b   (required to enable)
+#   TRUS_VISION_BASE_URL  defaults to TRUS_LLM_BASE_URL
+#   TRUS_VISION_API_KEY   defaults to TRUS_LLM_API_KEY
+#   TRUS_VISION_TIMEOUT   seconds (default 180 — image inference is slower)
+
+def vision_available() -> bool:
+    return bool(os.environ.get("TRUS_VISION_MODEL", "").strip())
+
+
+def vision_info() -> dict:
+    if not vision_available():
+        return {"available": False}
+    return {
+        "available": True,
+        "model": os.environ.get("TRUS_VISION_MODEL", "").strip(),
+        "base_url": (os.environ.get("TRUS_VISION_BASE_URL") or os.environ.get("TRUS_LLM_BASE_URL", "")).strip(),
+    }
+
+
+def vision_describe(system: Optional[str], user_text: str, data: bytes, mime: str) -> str:
+    """Send an image + instruction to the configured vision model; return its text."""
+    model = os.environ.get("TRUS_VISION_MODEL", "").strip()
+    base = (os.environ.get("TRUS_VISION_BASE_URL") or os.environ.get("TRUS_LLM_BASE_URL", "")).strip().rstrip("/")
+    if not model or not base:
+        raise LLMError(
+            "No vision model configured. Run a vision model (e.g. `make ollama-vision`) "
+            "and set TRUS_VISION_MODEL."
+        )
+    api_key = (os.environ.get("TRUS_VISION_API_KEY") or os.environ.get("TRUS_LLM_API_KEY", "")).strip()
+    try:
+        timeout = float(os.environ.get("TRUS_VISION_TIMEOUT", "180"))
+    except ValueError:
+        timeout = 180.0
+
+    b64 = base64.b64encode(data).decode("ascii")
+    messages: list[dict] = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": [
+        {"type": "text", "text": user_text},
+        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+    ]})
+    body = json.dumps({"model": model, "messages": messages, "temperature": DEFAULT_TEMPERATURE,
+                       "stream": False}).encode("utf-8")
+    req = urllib.request.Request(base + "/chat/completions", data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    if api_key:
+        req.add_header("Authorization", f"Bearer {api_key}")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "ignore")[:400] if hasattr(e, "read") else ""
+        raise LLMError(f"Vision endpoint returned HTTP {e.code}: {detail}") from e
+    except (urllib.error.URLError, OSError) as e:
+        raise LLMError(f"Could not reach the vision endpoint at {base}: {e}") from e
+    except json.JSONDecodeError as e:
+        raise LLMError(f"Vision endpoint returned non-JSON: {e}") from e
+    try:
+        text = payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as e:
+        raise LLMError(f"Unexpected vision response shape: {str(payload)[:300]}") from e
+    if not text or not text.strip():
+        raise LLMError("The vision model returned an empty response.")
+    return text

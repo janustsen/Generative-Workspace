@@ -157,4 +157,18 @@ export const api = {
   studioPromote: (id: string) =>
     request<{ ok: boolean; seed_prompt: string; library: { entries: number; hits: number } }>(
       `/api/studio/layouts/${id}/promote`, { method: "POST" }),
+  studioImport: async (key: string, opts: { file?: File; url?: string }): Promise<StudioLayout> => {
+    const fd = new FormData();
+    if (opts.file) fd.append("file", opts.file);
+    if (opts.url) fd.append("image_url", opts.url);
+    const res = await fetch(`${BASE}/api/studio/use-cases/${key}/import`, {
+      method: "POST", credentials: "include", body: fd, // browser sets multipart boundary
+    });
+    if (!res.ok) {
+      let detail: unknown = res.statusText;
+      try { const b = await res.json(); detail = b.detail ?? b; } catch { /* keep */ }
+      throw new ApiError(res.status, detail);
+    }
+    return (await res.json()) as StudioLayout;
+  },
 };

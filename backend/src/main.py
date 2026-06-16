@@ -51,6 +51,7 @@ def llm_status() -> dict:
     Lets you confirm a local/open-source model is wired before generating, and
     shows how big the self-growing template cache is."""
     info = llm.provider_info()
+    info["vision"] = llm.vision_info()
     try:
         info["cache"] = db.cache_stats()
     except Exception:  # pragma: no cover - diagnostics must not error

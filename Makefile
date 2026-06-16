@@ -1,11 +1,14 @@
 .DEFAULT_GOAL := help
-.PHONY: help ollama-setup ollama-serve ollama-stop verify-local dev-local frontend
+.PHONY: help ollama-setup ollama-vision ollama-serve ollama-stop verify-local dev-local frontend
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[1;36m%-14s\033[0m %s\n", $$1, $$2}'
 
 ollama-setup: ## Install Ollama, start it, pull a model, wire .env (safe to re-run)
 	@bash scripts/setup-ollama.sh
+
+ollama-vision: ## Pull a local vision model + wire it (for Studio screenshot import)
+	@bash scripts/setup-vision.sh
 
 ollama-serve: ## Start the Ollama server in the background
 	@curl -fsS --max-time 2 http://localhost:11434/api/version >/dev/null 2>&1 \

@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type { StudioLayout, StudioUseCase } from "@/lib/types";
 import { Module } from "@/components/Module";
 import { Icon } from "@/components/Icon";
@@ -16,7 +16,10 @@ export default function StudioPage() {
   const [layouts, setLayouts] = useState<StudioLayout[]>([]);
   const [loadingLayouts, setLoadingLayouts] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const flash = (m: string) => { setToast(m); window.setTimeout(() => setToast(null), 2800); };
 
@@ -57,6 +60,25 @@ export default function StudioPage() {
       flash("Generation failed — is the backend running?");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const doImport = async (opts: { file?: File; url?: string }) => {
+    if (!active) return;
+    setImporting(true);
+    try {
+      await api.studioImport(active, opts);
+      await loadLayouts(active);
+      await reloadUseCases();
+      setImportUrl("");
+      flash("Imported a layout from the screenshot.");
+    } catch (e) {
+      const msg = e instanceof ApiError
+        ? (e.refusal || (typeof e.detail === "string" ? e.detail : "Import failed"))
+        : "Import failed";
+      flash(msg);
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -129,6 +151,27 @@ export default function StudioPage() {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <input ref={fileRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport({ file: f }); e.currentTarget.value = ""; }} />
+            <input
+              value={importUrl}
+              onChange={(e) => setImportUrl(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && importUrl.trim()) doImport({ url: importUrl.trim() }); }}
+              placeholder="image URL ↵"
+              disabled={importing || !active}
+              aria-label="Import a layout from an image URL"
+              className="w-36 rounded-md border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/50 disabled:opacity-40"
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={importing || !active}
+              title="Import a reference screenshot — a vision model turns it into a layout"
+              className={`${btn} press border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] disabled:opacity-40 flex items-center gap-1.5`}
+            >
+              <Icon name="camera" size={14} />
+              {importing ? "Reading…" : "Import screenshot"}
+            </button>
             <button
               type="button"
               onClick={generate}

@@ -1,13 +1,17 @@
 """Layout Studio API — build/browse a use-case-indexed library of candidate
 ModuleConfig layouts, and promote chosen ones into the generation seed pool."""
 import json
+import urllib.error
+import urllib.request
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from src import db, semantic_cache
-from src.schema import ModuleConfig
+from src.schema import LLMError, ModuleConfig, RefusalError
 from src.services import studio
+
+_MAX_IMAGE_BYTES = 12 * 1024 * 1024
 
 router = APIRouter(prefix="/studio")
 
@@ -68,6 +72,59 @@ def generate(key: str, n: int = Query(default=4, ge=1, le=8)) -> list[StudioLayo
                                    inspired_by=ly.get("inspired_by"),
                                    config=ModuleConfig.model_validate(ly["config"])))
     return stored
+
+
+async def _load_image(file: UploadFile | None, image_url: str) -> tuple[bytes, str]:
+    """Image bytes + mime from an upload or a single http(s) fetch of a URL."""
+    if file is not None:
+        data = await file.read()
+        mime = file.content_type or "image/png"
+        if not mime.startswith("image/"):
+            raise HTTPException(status_code=422, detail="That file isn't an image.")
+        if len(data) > _MAX_IMAGE_BYTES:
+            raise HTTPException(status_code=413, detail="Image too large (max 12MB).")
+        return data, mime
+    url = (image_url or "").strip()
+    if not url:
+        raise HTTPException(status_code=422, detail="Provide an image file or an image_url.")
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise HTTPException(status_code=422, detail="image_url must be an http(s) link.")
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Trus/0.1 (layout studio)"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            ct = (resp.headers.get("Content-Type") or "").split(";")[0].strip()
+            if not ct.startswith("image/"):
+                raise HTTPException(status_code=422, detail="That URL didn't return an image.")
+            data = resp.read(_MAX_IMAGE_BYTES + 1)
+    except HTTPException:
+        raise
+    except (urllib.error.URLError, OSError) as e:
+        raise HTTPException(status_code=422, detail=f"Couldn't fetch that image: {e}")
+    if len(data) > _MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large (max 12MB).")
+    return data, ct
+
+
+@router.post("/use-cases/{key}/import", response_model=StudioLayout)
+async def import_layout(
+    key: str,
+    file: UploadFile | None = File(default=None),
+    image_url: str = Form(default=""),
+) -> StudioLayout:
+    """Read a reference screenshot (upload or image URL) with a vision model and add
+    the DERIVED layout to the library. Only the layout is stored — never the image."""
+    if studio.get_use_case(key) is None:
+        raise HTTPException(status_code=404, detail=f"Unknown use case: {key}")
+    data, mime = await _load_image(file, image_url)
+    try:
+        ly = studio.import_from_image(key, data, mime)
+    except RefusalError as e:
+        raise HTTPException(status_code=422, detail={"refusal": e.reason})
+    except LLMError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    lid = db.layout_add(key, ly["label"], ly.get("inspired_by"), json.dumps(ly["config"]))
+    return StudioLayout(id=lid, use_case=key, label=ly["label"], inspired_by=ly.get("inspired_by"),
+                        config=ModuleConfig.model_validate(ly["config"]))
 
 
 @router.get("/layouts", response_model=list[StudioLayout])

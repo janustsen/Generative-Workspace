@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import json
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from src import llm
-from src.schema import LLMError, ModuleConfig, RefusalError
+from src.schema import Component, LLMError, ModuleConfig, RefusalError
+
+_COMPONENT_ADAPTER = TypeAdapter(Component)
 from src.services.orchestrator import (
     _COMPONENT_DOCS,
     _RETRY_NOTE,
@@ -192,3 +194,78 @@ def generate_layouts(use_case_key: str, n: int = 4) -> list[dict]:
             break  # endpoint unavailable — stop retrying, fall back
     # The model couldn't produce valid layouts — still give the user something.
     return _stub_layouts(uc, n)
+
+
+# ── Vision import: a reference screenshot → a Trus layout ─────────────────────
+
+STUDIO_IMPORT_SYSTEM = f"""You are Trus's Layout Studio vision importer. You are shown a
+SCREENSHOT of a real app's interface. Reproduce ITS LAYOUT as a SINGLE Trus ModuleConfig
+using ONLY the trusted component library — match the on-screen STRUCTURE (a food diary →
+table/list; macro rings → ring/gauge; a trend → chart; a streak grid → heatmap; a board →
+kanban; a big figure → kpi). Capture the APPROACH/STRUCTURE, not the app's exact text or
+branding — use your own generic field labels.
+
+{_COMPONENT_DOCS}
+
+Output ONLY one ModuleConfig JSON object:
+{{ "title": "...", "components": [ {{ "id","type","label",... }} ], "icon": "...", "accent": "...", "columns": 1, "state": {{}} }}
+Do NOT use the 'button' component. No prose, no code fences."""
+
+
+def _coerce(data: object) -> ModuleConfig:
+    """Validate a config, dropping any individual components that don't validate
+    (a vision model may invent an out-of-enum field) rather than failing wholesale."""
+    if isinstance(data, dict) and isinstance(data.get("components"), list):
+        good = []
+        for c in data["components"]:
+            try:
+                _COMPONENT_ADAPTER.validate_python(c)
+                good.append(c)
+            except ValidationError:
+                continue
+        data = {**data, "components": good}
+    return ModuleConfig.model_validate(data)
+
+
+def _parse_one(raw: str) -> ModuleConfig:
+    cleaned = _strip_codefence(raw)
+    try:
+        data = json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        raise _Invalid(f"non-JSON: {e.msg}") from e
+    if isinstance(data, list):  # tolerate an array — take the first valid config
+        for item in data:
+            try:
+                return _coerce(item)
+            except ValidationError:
+                continue
+        raise _Invalid("no valid config in array")
+    try:
+        return _coerce(data)
+    except ValidationError as e:
+        raise _Invalid(f"invalid ModuleConfig: {e.errors()[0]['msg']}") from e
+
+
+def import_from_image(use_case_key: str, data: bytes, mime: str) -> dict:
+    """Read a reference screenshot with a vision model and return a layout dict
+    {label, inspired_by, config}. Only the derived layout is kept — never the image."""
+    uc = _BY_KEY.get(use_case_key)
+    if uc is None:
+        raise RefusalError(f"Unknown use case: {use_case_key}")
+    user = (
+        f"This is a screenshot of a {uc['title'].lower()} app interface. "
+        f"Reproduce its layout as one Trus ModuleConfig using the matching components."
+    )
+    last: Exception | None = None
+    for attempt in range(2):  # one retry — vision models occasionally slip on JSON
+        raw = llm.vision_describe(STUDIO_IMPORT_SYSTEM, user if attempt == 0 else user + _RETRY_NOTE, data, mime)
+        try:
+            mc = _parse_one(raw)
+            return {
+                "label": mc.title or "Imported layout",
+                "inspired_by": "reference screenshot",
+                "config": mc.model_dump(mode="json"),
+            }
+        except _Invalid as e:
+            last = e
+    raise RefusalError(f"Couldn't read a usable layout from that image ({last}).")

@@ -68,3 +68,42 @@ def test_promote_seeds_the_generation_pool(client):
     mode, cached = semantic_cache.lookup("system", "calorie tracker")
     assert mode == "hit"
     assert cached and cached[0]["title"]
+
+
+_PNG = b"\x89PNG\r\n\x1a\n"  # minimal header — bytes are irrelevant when vision is mocked
+
+
+def test_import_without_vision_model_returns_503(client):
+    # No TRUS_VISION_MODEL configured (conftest clears it) → 503.
+    r = client.post("/api/studio/use-cases/calorie/import",
+                    files={"file": ("ui.png", _PNG, "image/png")})
+    assert r.status_code == 503
+
+
+def test_import_from_screenshot_stores_layout(client, monkeypatch):
+    from src.services import studio
+    monkeypatch.setenv("TRUS_VISION_MODEL", "fake-vlm")
+
+    def fake_vision(system, user_text, data, mime):
+        return ('{"title":"Imported Nutrition","components":'
+                '[{"id":"diary","type":"table","label":"Food log","columns":["Food","Cal"]},'
+                '{"id":"cals","type":"ring","label":"Calories","max":2000}]}')
+
+    monkeypatch.setattr(studio.llm, "vision_describe", fake_vision)
+    r = client.post("/api/studio/use-cases/calorie/import",
+                    files={"file": ("ui.png", _PNG, "image/png")})
+    assert r.status_code == 200
+    ly = r.json()
+    assert ly["use_case"] == "calorie"
+    assert ly["inspired_by"] == "reference screenshot"
+    assert [c["type"] for c in ly["config"]["components"]] == ["table", "ring"]
+    # it landed in the library
+    listed = client.get("/api/studio/layouts?use_case=calorie").json()
+    assert any(x["id"] == ly["id"] for x in listed)
+
+
+def test_import_rejects_non_image(client, monkeypatch):
+    monkeypatch.setenv("TRUS_VISION_MODEL", "fake-vlm")
+    r = client.post("/api/studio/use-cases/calorie/import",
+                    files={"file": ("notes.txt", b"hello", "text/plain")})
+    assert r.status_code == 422
