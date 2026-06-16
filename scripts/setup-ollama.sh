@@ -67,26 +67,36 @@ done
 [ -n "$pulled" ] || die "Could not pull any model. Check your network and retry."
 
 # 4 ── Wire .env (managed block; never clobbers your other keys) ──────────────
-if [ ! -f "$ENV_FILE" ]; then
-  cp "$EXAMPLE" "$ENV_FILE" 2>/dev/null || : >"$ENV_FILE"
-  say "Created .env"
-fi
-tmp="$(mktemp)"
-awk '
-  /^# >>> trus local-ollama >>>/ {skip=1}
-  /^# <<< trus local-ollama <<</ {skip=0; next}
-  skip!=1 {print}
-' "$ENV_FILE" >"$tmp"
-{
-  cat "$tmp"
-  printf '\n# >>> trus local-ollama >>> (managed by scripts/setup-ollama.sh)\n'
-  printf 'TRUS_LLM_PROVIDER=openai\n'
-  printf 'TRUS_LLM_BASE_URL=%s\n' "$BASE_URL"
-  printf 'TRUS_LLM_MODEL=%s\n' "$MODEL"
-  printf 'TRUS_LLM_JSON_MODE=object\n'
-  printf '# <<< trus local-ollama <<<\n'
-} >"$ENV_FILE"
-rm -f "$tmp"
+# Write the managed block into a given .env, replacing any previous block.
+wire_env() {
+  f="$1"
+  if [ ! -f "$f" ]; then
+    cp "$EXAMPLE" "$f" 2>/dev/null || : >"$f"
+    say "Created $f"
+  fi
+  tmp="$(mktemp)"
+  awk '
+    /^# >>> trus local-ollama >>>/ {skip=1}
+    /^# <<< trus local-ollama <<</ {skip=0; next}
+    skip!=1 {print}
+  ' "$f" >"$tmp"
+  {
+    cat "$tmp"
+    printf '\n# >>> trus local-ollama >>> (managed by scripts/setup-ollama.sh)\n'
+    printf 'TRUS_LLM_PROVIDER=openai\n'
+    printf 'TRUS_LLM_BASE_URL=%s\n' "$BASE_URL"
+    printf 'TRUS_LLM_MODEL=%s\n' "$MODEL"
+    printf 'TRUS_LLM_JSON_MODE=object\n'
+    printf '# <<< trus local-ollama <<<\n'
+  } >"$f"
+  rm -f "$tmp"
+}
+
+# The backend loads the .env NEAREST to backend/src (python-dotenv walks up), so
+# backend/.env shadows the repo-root one. Wire the backend's .env when it exists
+# (that's the file that actually takes effect) and keep the repo-root one in sync.
+wire_env "$ENV_FILE"
+[ -d "$ROOT/backend" ] && wire_env "$ROOT/backend/.env"
 ok ".env wired → provider=openai · model=$MODEL · endpoint=$BASE_URL"
 
 # 5 ── Smoke-test the local model end-to-end ──────────────────────────────────
