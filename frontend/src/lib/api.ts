@@ -1,4 +1,4 @@
-import type { Message, ModuleConfig, Page, Snapshot, StoredModule } from "./types";
+import type { Message, ModuleConfig, Page, Snapshot, StoredModule, StudioLayout, StudioUseCase } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
@@ -145,4 +145,16 @@ export const api = {
     request<void>(`/api/conversations${pageId ? `?page_id=${pageId}` : ""}`, {
       method: "DELETE",
     }),
+
+  // Layout Studio
+  studioUseCases: () => request<StudioUseCase[]>("/api/studio/use-cases"),
+  studioGenerate: (key: string, n = 4) =>
+    request<StudioLayout[]>(`/api/studio/use-cases/${key}/generate?n=${n}`, { method: "POST" }),
+  studioLayouts: (useCase?: string) =>
+    request<StudioLayout[]>(`/api/studio/layouts${useCase ? `?use_case=${useCase}` : ""}`),
+  studioDeleteLayout: (id: string) =>
+    request<void>(`/api/studio/layouts/${id}`, { method: "DELETE" }),
+  studioPromote: (id: string) =>
+    request<{ ok: boolean; seed_prompt: string; library: { entries: number; hits: number } }>(
+      `/api/studio/layouts/${id}/promote`, { method: "POST" }),
 };

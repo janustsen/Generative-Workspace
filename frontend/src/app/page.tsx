@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Canvas } from "@/components/Canvas";
 import { ConversationPanel } from "@/components/ConversationPanel";
 import { ArchivedPanel } from "@/components/ArchivedPanel";
@@ -558,6 +559,15 @@ export default function Home() {
             </span>
           )}
         </button>
+
+        <Link
+          href="/studio"
+          className="shrink-0 flex items-center gap-1.5 rounded-md border border-[var(--border)] px-2.5 py-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition"
+          title="Layout Studio — browse layout patterns per use case"
+        >
+          <Icon name="grid" size={14} />
+          <span className="hidden sm:inline">Studio</span>
+        </Link>
 
         <AppearanceMenu />
       </header>

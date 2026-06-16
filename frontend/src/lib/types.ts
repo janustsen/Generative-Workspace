@@ -258,3 +258,22 @@ export interface Snapshot {
   module_count: number;
   created_at: string;
 }
+
+// Layout Studio — a use-case-indexed library of candidate layouts.
+export interface StudioUseCase {
+  key: string;
+  title: string;
+  icon?: string | null;
+  accent?: string | null;
+  apps: string[];
+  count: number;
+}
+
+export interface StudioLayout {
+  id?: string;
+  use_case: string;
+  label: string;
+  inspired_by?: string | null;
+  config: ModuleConfig;
+  created_at?: string;
+}

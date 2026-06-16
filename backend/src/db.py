@@ -90,6 +90,18 @@ CREATE TABLE IF NOT EXISTS gen_cache (
     created_at   TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_gen_cache_kind ON gen_cache(kind);
+-- Layout Studio: a use-case-indexed library of candidate ModuleConfig layouts
+-- (each modelled after leading apps in that category). Curatable; promotable into
+-- the generation seed pool (gen_cache).
+CREATE TABLE IF NOT EXISTS layout_library (
+    id           TEXT PRIMARY KEY,
+    use_case     TEXT NOT NULL,
+    label        TEXT NOT NULL,
+    inspired_by  TEXT,
+    config_json  TEXT NOT NULL,
+    created_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_layout_use_case ON layout_library(use_case, created_at);
 """
 
 # Tracks which db file has had its schema ensured this process, so we re-run the
@@ -612,3 +624,50 @@ def cache_stats() -> dict:
             "SELECT COUNT(*) AS n, COALESCE(SUM(hits), 0) AS hits FROM gen_cache"
         ).fetchone()
     return {"entries": row["n"], "hits": row["hits"]}
+
+
+# ── Layout Studio library ────────────────────────────────────────────────────
+
+_LAYOUT_COLS = "id, use_case, label, inspired_by, config_json, created_at"
+
+
+def layout_add(use_case: str, label: str, inspired_by: str | None, config_json: str) -> str:
+    lid = uuid.uuid4().hex
+    with _conn() as c:
+        c.execute(
+            f"INSERT INTO layout_library ({_LAYOUT_COLS}) VALUES (?, ?, ?, ?, ?, ?)",
+            (lid, use_case, label, inspired_by, config_json, _now()),
+        )
+    return lid
+
+
+def layout_list(use_case: str | None = None) -> list[sqlite3.Row]:
+    with _conn() as c:
+        if use_case:
+            return c.execute(
+                f"SELECT {_LAYOUT_COLS} FROM layout_library WHERE use_case = ? ORDER BY created_at DESC",
+                (use_case,),
+            ).fetchall()
+        return c.execute(
+            f"SELECT {_LAYOUT_COLS} FROM layout_library ORDER BY created_at DESC"
+        ).fetchall()
+
+
+def layout_get(layout_id: str) -> sqlite3.Row | None:
+    with _conn() as c:
+        return c.execute(
+            f"SELECT {_LAYOUT_COLS} FROM layout_library WHERE id = ?", (layout_id,)
+        ).fetchone()
+
+
+def layout_delete(layout_id: str) -> bool:
+    with _conn() as c:
+        return c.execute("DELETE FROM layout_library WHERE id = ?", (layout_id,)).rowcount > 0
+
+
+def layout_counts() -> dict[str, int]:
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT use_case, COUNT(*) AS n FROM layout_library GROUP BY use_case"
+        ).fetchall()
+    return {r["use_case"]: r["n"] for r in rows}
