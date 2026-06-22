@@ -94,8 +94,8 @@ export function AppearanceMenu() {
                     outline: accent === name ? "2px solid var(--foreground)" : "none",
                     outlineOffset: "1px",
                   }}
-                  aria-label={`Accent ${name}`}
-                  title={name}
+                  aria-label={`Accent ${name === "blue" ? "magenta" : name}`}
+                  title={name === "blue" ? "magenta" : name}
                 />
               ))}
             </div>

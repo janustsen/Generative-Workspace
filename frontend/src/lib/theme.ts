@@ -15,8 +15,9 @@ export interface AccentTheme {
 }
 
 export const ACCENTS: Record<string, AccentTheme> = {
-  // The one brand accent (ethos default). The rest are opt-in "refresh" colours.
-  blue: { name: "blue", accent: "#1e40af", accentFg: "#ffffff" },
+  // The one brand accent (ethos default) — vivid magenta. Key kept as "blue" for
+  // back-compat (stable stored id); the hue is the brand spark. Rest are opt-in.
+  blue: { name: "blue", accent: "#c42e8c", accentFg: "#ffffff" },
   amber: { name: "amber", accent: "#d9a86c", accentFg: "#1c1b1a" },
   emerald: { name: "emerald", accent: "#84c89a", accentFg: "#10201a" },
   sky: { name: "sky", accent: "#8fbce0", accentFg: "#0f1a26" },
@@ -37,7 +38,7 @@ function hash(seed: string): number {
 }
 
 export function resolveAccent(name?: string | null, _seed = "", themeOptIn = false): AccentTheme {
-  // Ethos: ONE accent by default — matte charcoal + the single deep-blue accent.
+  // Ethos: ONE accent by default — matte charcoal + the single magenta accent.
   // Per-module hues are an explicit opt-in (e.g. a "match source colours" screenshot
   // import sets theme_opt_in): only then do we honor the stored accent token.
   if (themeOptIn && name) {

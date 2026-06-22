@@ -1,9 +1,10 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Trus design ethos (spec v1.9). Matte charcoal + matte grays, one deep-blue
-   accent (#1E40AF). No warm tones, no neon in the default UI — saturated colour
-   is confined to the opt-in per-module themes (see lib/theme.ts).
+   Trus design ethos (spec v1.9). Matte charcoal + matte grays, one magenta
+   accent (#C42E8C — the brand spark, rationed hard; token kept named
+   `--accent-blue` for back-compat). No warm tones, no neon in the default UI —
+   saturated colour is confined to the opt-in per-module themes (see lib/theme.ts).
    ───────────────────────────────────────────────────────────────────────── */
 :root {
   /* Ethos tokens (theme-independent) — the canonical palette + scales. */
@@ -19,11 +20,13 @@
   --gray-mid: #787673;
   --gray-dark: #3a3a38;
   --text-inverse: #181818;
-  --accent-blue: #1e40af;
-  --accent-blue-hover: #172e7c;
-  --accent-blue-glow: 0 6px 24px rgba(30, 64, 175, 0.4);
-  --status-err: #d7674f;
-  --status-ok: #5fae7e;
+  --accent-blue: #c42e8c;             /* the brand spark (magenta; name historical) */
+  --accent-blue-hover: #a82478;       /* darker, for hover on filled CTAs */
+  --accent-blue-soft: rgba(196, 46, 142, 0.82); /* lower alpha — logo dot / soft accents */
+  --accent-blue-line: rgba(196, 46, 142, 0.78); /* translucent — accent borders */
+  --accent-blue-glow: 0 6px 24px rgba(196, 46, 142, 0.38); /* the only colored shadow */
+  --status-err: #d7674f; --status-err-dim: rgba(215, 103, 79, 0.16); /* muted terracotta */
+  --status-ok: #5fae7e;  --status-ok-dim: rgba(95, 174, 126, 0.16);  /* muted sage */
   --glow-white: 0 0 24px rgba(240, 239, 237, 0.12), 0 0 60px rgba(240, 239, 237, 0.05);
   --gap-xs: 4px; --gap-sm: 8px; --gap-md: 16px; --gap-lg: 24px; --gap-xl: 48px; --gap-2xl: 96px;
   --radius-sm: 4px; --radius-md: 8px; --radius-lg: 14px;
@@ -40,7 +43,7 @@
   --foreground: #181818;
   --muted: #6e6d6a;
   --border: #e4e3e0;
-  --accent: #1e40af;
+  --accent: #c42e8c;
   --accent-fg: #ffffff;
   --danger: #d7674f;
 
@@ -58,7 +61,7 @@
   --foreground: #f0efed;          /* text-primary / white-matte */
   --muted: #8f8e8b;               /* text-secondary */
   --border: #383838;              /* border-default */
-  --accent: #1e40af;              /* the one accent — deep confident blue */
+  --accent: #c42e8c;              /* the one accent — vivid magenta brand spark */
   --accent-fg: #ffffff;           /* CTA text always white */
   --danger: #d7674f;              /* status-err (muted terracotta) */
 }
@@ -96,7 +99,7 @@ html {
 
 /* Selection + a thin matte scrollbar (ethos: 5px, border-strong thumb). */
 ::selection { background: rgba(240, 239, 237, 0.15); }
-[data-theme="light"] ::selection { background: rgba(30, 64, 175, 0.15); }
+[data-theme="light"] ::selection { background: rgba(196, 46, 142, 0.15); }
 * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
