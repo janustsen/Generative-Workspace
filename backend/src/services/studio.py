@@ -16,14 +16,14 @@ from pydantic import TypeAdapter, ValidationError
 
 from src import llm
 from src.schema import Component, LLMError, ModuleConfig, RefusalError
-
-_COMPONENT_ADAPTER = TypeAdapter(Component)
 from src.services.orchestrator import (
     _COMPONENT_DOCS,
     _RETRY_NOTE,
     _retry_count,
     _strip_codefence,
 )
+
+_COMPONENT_ADAPTER: TypeAdapter[Component] = TypeAdapter(Component)
 
 # Curated categories. `apps` are leaders the layouts are modelled after; `brief`
 # describes the characteristic on-screen elements; `seed_prompts` drive the
@@ -244,7 +244,6 @@ def generate_layouts(use_case_key: str, n: int = 4) -> list[dict]:
         f"Characteristic on-screen elements: {uc['brief']}.\n"
         f"Produce {n} distinct candidate layouts as the JSON array."
     )
-    last: Exception | None = None
     for attempt in range(1 + _retry_count()):
         try:
             raw = llm.generate(
@@ -253,10 +252,9 @@ def generate_layouts(use_case_key: str, n: int = 4) -> list[dict]:
                 expect_array=True,
             )
             return _parse_layouts(raw)[:n]
-        except _Invalid as e:
-            last = e
-        except LLMError as e:
-            last = e
+        except _Invalid:
+            continue
+        except LLMError:
             break  # endpoint unavailable — stop retrying, fall back
     # The model couldn't produce valid layouts — still give the user something.
     return _stub_layouts(uc, n)

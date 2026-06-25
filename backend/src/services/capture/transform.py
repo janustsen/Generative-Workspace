@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+from typing import Literal, cast
 
 from pydantic import TypeAdapter, ValidationError
 
@@ -19,7 +20,7 @@ from src.services.orchestrator import _COMPONENT_DOCS, _strip_codefence
 from .ir import CaptureIR
 from .prompts import transform_system
 
-_COMPONENT_ADAPTER = TypeAdapter(Component)
+_COMPONENT_ADAPTER: TypeAdapter[Component] = TypeAdapter(Component)
 
 VALID_ACCENTS = {"amber", "emerald", "sky", "rose", "violet", "coral", "teal", "gold", "blue"}
 
@@ -158,9 +159,9 @@ def _apply_design_layer(config: ModuleConfig, ir: CaptureIR, match_colors: bool)
     if config.density is None and ir.density_hint() in ("compact", "comfortable", "spacious"):
         config.density = ir.density_hint()
     if config.radius is None and ir.radius_hint() in ("sharp", "rounded", "pill"):
-        config.radius = ir.radius_hint()
+        config.radius = cast(Literal["sharp", "rounded", "pill"], ir.radius_hint())
     if config.type_scale is None and ir.type_scale_hint() in ("compact", "regular", "large"):
-        config.type_scale = ir.type_scale_hint()
+        config.type_scale = cast(Literal["compact", "regular", "large"], ir.type_scale_hint())
     if match_colors:
         hint = (ir.accent_hint() or "").lower()
         if hint in VALID_ACCENTS:

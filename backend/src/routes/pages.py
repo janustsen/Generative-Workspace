@@ -51,7 +51,7 @@ def _would_loop(sid: str, page_id: str, parent_id: str | None) -> bool:
 async def update_page(page_id: str, body: RenamePageRequest, request: Request) -> Page:
     sid = _session_id(request)
     fields = body.model_fields_set
-    kwargs = {}
+    kwargs: dict[str, str | None] = {}
     if "name" in fields:
         name = (body.name or "").strip()
         if not name:

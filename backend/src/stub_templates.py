@@ -130,7 +130,7 @@ def _note(id, label, ph=None):
     return c
 
 
-def _mod(title, icon, accent, components, summary=None, columns=1):
+def _mod(title, icon, accent, components, summary=None, columns=1) -> dict:
     m = {"title": title, "icon": icon, "accent": accent, "components": components}
     if summary:
         m["summary_component_id"] = summary

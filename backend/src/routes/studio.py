@@ -128,7 +128,7 @@ async def _load_image(file: UploadFile | None, image_url: str) -> tuple[bytes, s
     except HTTPException:
         raise
     except (urllib.error.URLError, OSError) as e:
-        raise HTTPException(status_code=422, detail=f"Couldn't fetch that image: {e}")
+        raise HTTPException(status_code=422, detail=f"Couldn't fetch that image: {e}") from e
     if len(data) > _MAX_IMAGE_BYTES:
         raise HTTPException(status_code=413, detail="Image too large (max 12MB).")
     return data, ct
@@ -148,9 +148,9 @@ async def import_layout(
     try:
         ly = studio.import_from_image(key, data, mime)
     except RefusalError as e:
-        raise HTTPException(status_code=422, detail={"refusal": e.reason})
+        raise HTTPException(status_code=422, detail={"refusal": e.reason}) from e
     except LLMError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e)) from e
     lid = db.layout_add(key, ly["label"], ly.get("inspired_by"), json.dumps(ly["config"]))
     return StudioLayout(
         id=lid,
@@ -178,9 +178,9 @@ async def capture_layout(
     try:
         ly = studio.capture_layout(key, data, mime, match_colors=match_colors)
     except RefusalError as e:
-        raise HTTPException(status_code=422, detail={"refusal": e.reason})
+        raise HTTPException(status_code=422, detail={"refusal": e.reason}) from e
     except LLMError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e)) from e
 
     lid = db.layout_add(
         key,

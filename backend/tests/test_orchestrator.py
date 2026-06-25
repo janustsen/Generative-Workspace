@@ -45,9 +45,11 @@ def test_generate_module_strips_code_fence():
 
 
 def test_generate_module_raises_refusal_on_explicit_refusal():
-    with _fake_llm('{"refusal": "Out of scope for the component library."}'):
-        with pytest.raises(RefusalError, match="Out of scope"):
-            orchestrator.generate_module("build a 3D movie")
+    with (
+        _fake_llm('{"refusal": "Out of scope for the component library."}'),
+        pytest.raises(RefusalError, match="Out of scope"),
+    ):
+        orchestrator.generate_module("build a 3D movie")
 
 
 def test_generate_module_raises_refusal_on_non_json():
@@ -112,9 +114,11 @@ def test_refine_module_returns_updated_config():
 
 
 def test_refine_module_raises_refusal_on_explicit_refusal():
-    with _fake_llm('{"refusal": "Cannot embed a video."}'):
-        with pytest.raises(RefusalError, match="Cannot embed"):
-            orchestrator.refine_module(_make_config(), "embed a YouTube video")
+    with (
+        _fake_llm('{"refusal": "Cannot embed a video."}'),
+        pytest.raises(RefusalError, match="Cannot embed"),
+    ):
+        orchestrator.refine_module(_make_config(), "embed a YouTube video")
 
 
 def test_refine_module_raises_refusal_on_non_json():
@@ -209,9 +213,11 @@ def test_metric_component_roundtrips():
 def test_generate_module_raises_clarifying_question():
     from src.schema import ClarifyingQuestion
 
-    with _fake_llm('{"question": "How many meals per day do you track?"}'):
-        with pytest.raises(ClarifyingQuestion) as exc:
-            orchestrator.generate_module("track my food")
+    with (
+        _fake_llm('{"question": "How many meals per day do you track?"}'),
+        pytest.raises(ClarifyingQuestion) as exc,
+    ):
+        orchestrator.generate_module("track my food")
     assert "meals" in exc.value.question.lower()
 
 

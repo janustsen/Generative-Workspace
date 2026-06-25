@@ -23,6 +23,14 @@ repos:
       - id: mypy
         args: [--config-file=pyproject.toml]
         files: ^backend/src/
+        # Type the core runtime deps so mypy checks against real types (esp.
+        # pydantic models) instead of treating them as Any — that's what makes
+        # the gate catch real bugs.
+        additional_dependencies:
+          - pydantic>=2.0.0
+          - fastapi>=0.111.0
+          - google-genai>=0.8.0
+          - types-Pillow
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.18.4

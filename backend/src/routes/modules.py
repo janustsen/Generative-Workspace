@@ -1,3 +1,6 @@
+import contextlib
+from typing import Literal
+
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 
 from src import db
@@ -30,13 +33,15 @@ def _session_id(request: Request) -> str:
 
 
 def _log(
-    sid: str, role: str, text: str, page_id: str | None = None, module_id: str | None = None
+    sid: str,
+    role: Literal["user", "assistant"],
+    text: str,
+    page_id: str | None = None,
+    module_id: str | None = None,
 ) -> None:
     """Best-effort conversation logging — never let it break a generation."""
-    try:
+    with contextlib.suppress(Exception):  # pragma: no cover - logging must not fail the request
         db.add_message(sid, role, text, page_id=page_id, module_id=module_id)
-    except Exception:  # pragma: no cover - logging must not fail the request
-        pass
 
 
 @router.post("/modules/generate", response_model=GenerateResponse)
@@ -55,12 +60,12 @@ async def generate_module(
     except ClarifyingQuestion as e:
         return GenerateResponse(question=e.question)
     except RefusalError as e:
-        raise HTTPException(status_code=422, detail={"refusal": e.reason})
+        raise HTTPException(status_code=422, detail={"refusal": e.reason}) from e
     except LLMError:
         raise HTTPException(
             status_code=503,
             detail="AI generation is temporarily unavailable. Please try again in a moment.",
-        )
+        ) from None
     stored = [db.insert_module(sid, c, page_id=page_id) for c in configs]
     _log(sid, "user", prompt, page_id=stored[0].page_id)
     for s in stored:
@@ -85,12 +90,12 @@ async def preview_modules(
     except ClarifyingQuestion as e:
         return GenerateResponse(question=e.question)
     except RefusalError as e:
-        raise HTTPException(status_code=422, detail={"refusal": e.reason})
+        raise HTTPException(status_code=422, detail={"refusal": e.reason}) from e
     except LLMError:
         raise HTTPException(
             status_code=503,
             detail="AI generation is temporarily unavailable. Please try again in a moment.",
-        )
+        ) from None
     return GenerateResponse(previews=configs)
 
 
@@ -133,12 +138,12 @@ async def generate_from_file(
     except ClarifyingQuestion as e:
         return GenerateResponse(question=e.question)
     except RefusalError as e:
-        raise HTTPException(status_code=422, detail={"refusal": e.reason})
+        raise HTTPException(status_code=422, detail={"refusal": e.reason}) from e
     except LLMError:
         raise HTTPException(
             status_code=503,
             detail="AI generation is temporarily unavailable. Please try again in a moment.",
-        )
+        ) from None
     stored = [db.insert_module(sid, c, page_id=page_id) for c in configs]
     _log(sid, "user", f"📎 {file.filename}: {instruction}", page_id=stored[0].page_id)
     for s in stored:
@@ -262,12 +267,12 @@ async def refine_module(module_id: str, body: RefineRequest, request: Request) -
             existing.config, prompt, existing_modules=other_modules
         )
     except RefusalError as e:
-        raise HTTPException(status_code=422, detail={"refusal": e.reason})
+        raise HTTPException(status_code=422, detail={"refusal": e.reason}) from e
     except LLMError:
         raise HTTPException(
             status_code=503,
             detail="AI generation is temporarily unavailable. Please try again in a moment.",
-        )
+        ) from None
     updated = db.update_module(sid, module_id, new_config)
     if updated is None:
         raise HTTPException(status_code=404, detail="Module not found")
@@ -337,11 +342,11 @@ async def workspace_insights(
     try:
         config = orchestrator.synthesize_workspace(existing_configs)
     except RefusalError as e:
-        raise HTTPException(status_code=422, detail={"refusal": e.reason})
+        raise HTTPException(status_code=422, detail={"refusal": e.reason}) from e
     except LLMError:
         raise HTTPException(
             status_code=503,
             detail="AI generation is temporarily unavailable. Please try again in a moment.",
-        )
+        ) from None
     stored = db.insert_module(sid, config, page_id=page_id)
     return GenerateResponse(module=stored)

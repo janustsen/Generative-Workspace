@@ -93,7 +93,7 @@ class CaptureIR(BaseModel):
     def to_structured_text(self) -> str:
         """A discriminative text document for embedding/seeding (NOT raw pixels)."""
         hist = self.node_type_histogram()
-        inventory = ", ".join(f"{k}×{v}" for k, v in sorted(hist.items(), key=lambda x: -x[1]))
+        inventory = ", ".join(f"{k}×{v}" for k, v in sorted(hist.items(), key=lambda x: -x[1]))  # noqa: RUF001
         labels = "; ".join(n.label for n in self.nodes if n.label)[:400]
         caps = "; ".join(self.capabilities)
         return (

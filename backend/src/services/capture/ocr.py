@@ -17,7 +17,7 @@ def ocr_text(png_bytes: bytes) -> str:
     if not ocr_enabled():
         return ""
     try:  # pragma: no cover - exercised only when RapidOCR is installed
-        from rapidocr_onnxruntime import RapidOCR  # type: ignore
+        from rapidocr_onnxruntime import RapidOCR
 
         engine = RapidOCR()
         result, _ = engine(png_bytes)

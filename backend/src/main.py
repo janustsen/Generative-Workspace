@@ -1,5 +1,5 @@
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,8 +52,6 @@ def llm_status() -> dict:
     shows how big the self-growing template cache is."""
     info = llm.provider_info()
     info["vision"] = llm.vision_info()
-    try:
+    with suppress(Exception):  # pragma: no cover - diagnostics must not error
         info["cache"] = db.cache_stats()
-    except Exception:  # pragma: no cover - diagnostics must not error
-        pass
     return info

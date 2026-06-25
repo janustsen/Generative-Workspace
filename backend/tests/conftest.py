@@ -1,3 +1,4 @@
+import contextlib
 import os
 import tempfile
 
@@ -11,10 +12,8 @@ def _isolate_db(monkeypatch):
     os.close(fd)
     monkeypatch.setenv("TRUS_DB_PATH", path)
     yield
-    try:
+    with contextlib.suppress(FileNotFoundError):
         os.unlink(path)
-    except FileNotFoundError:
-        pass
 
 
 @pytest.fixture(autouse=True)

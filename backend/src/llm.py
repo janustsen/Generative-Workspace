@@ -152,7 +152,7 @@ def _gemini_generate(prompt: str, system: str | None) -> str:
         )
     except Exception as e:  # network, quota (429), auth — surfaced cleanly upstream
         raise LLMError(str(e)) from e
-    text = response.text
+    text: str | None = response.text
     if not text:
         raise LLMError("The model returned an empty response.")
     return text
@@ -170,7 +170,7 @@ def _gemini_generate_file(user_message: str, system: str | None, data: bytes, mi
         )
     except Exception as e:
         raise LLMError(str(e)) from e
-    text = response.text
+    text: str | None = response.text
     if not text:
         raise LLMError("The model returned an empty response.")
     return text
@@ -225,7 +225,7 @@ def _openai_chat(
         raise LLMError(f"LLM endpoint returned non-JSON: {e}") from e
 
     try:
-        text = payload["choices"][0]["message"]["content"]
+        text: str | None = payload["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as e:
         raise LLMError(f"Unexpected LLM response shape: {str(payload)[:300]}") from e
     if not text or not text.strip():
@@ -309,7 +309,7 @@ def vision_info() -> dict:
         "available": True,
         "model": os.environ.get("TRUS_VISION_MODEL", "").strip(),
         "base_url": (
-            os.environ.get("TRUS_VISION_BASE_URL") or os.environ.get("TRUS_LLM_BASE_URL", "")
+            os.getenv("TRUS_VISION_BASE_URL") or os.getenv("TRUS_LLM_BASE_URL") or ""
         ).strip(),
     }
 
@@ -318,7 +318,7 @@ def vision_describe(system: str | None, user_text: str, data: bytes, mime: str) 
     """Send an image + instruction to the configured vision model; return its text."""
     model = os.environ.get("TRUS_VISION_MODEL", "").strip()
     base = (
-        (os.environ.get("TRUS_VISION_BASE_URL") or os.environ.get("TRUS_LLM_BASE_URL", ""))
+        (os.getenv("TRUS_VISION_BASE_URL") or os.getenv("TRUS_LLM_BASE_URL") or "")
         .strip()
         .rstrip("/")
     )
@@ -327,9 +327,7 @@ def vision_describe(system: str | None, user_text: str, data: bytes, mime: str) 
             "No vision model configured. Run a vision model (e.g. `make ollama-vision`) "
             "and set TRUS_VISION_MODEL."
         )
-    api_key = (
-        os.environ.get("TRUS_VISION_API_KEY") or os.environ.get("TRUS_LLM_API_KEY", "")
-    ).strip()
+    api_key = (os.getenv("TRUS_VISION_API_KEY") or os.getenv("TRUS_LLM_API_KEY") or "").strip()
     try:
         timeout = float(os.environ.get("TRUS_VISION_TIMEOUT", "180"))
     except ValueError:
@@ -366,7 +364,7 @@ def vision_describe(system: str | None, user_text: str, data: bytes, mime: str) 
     except json.JSONDecodeError as e:
         raise LLMError(f"Vision endpoint returned non-JSON: {e}") from e
     try:
-        text = payload["choices"][0]["message"]["content"]
+        text: str | None = payload["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as e:
         raise LLMError(f"Unexpected vision response shape: {str(payload)[:300]}") from e
     if not text or not text.strip():

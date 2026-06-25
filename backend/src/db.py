@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal, cast
 
 from src.schema import Message, ModuleConfig, ModuleVersion, Page, Snapshot, StoredModule
 
@@ -499,7 +500,7 @@ def list_versions(session_id: str, module_id: str) -> list[ModuleVersion]:
 
 def add_message(
     session_id: str,
-    role: str,
+    role: Literal["user", "assistant"],
     text: str,
     page_id: str | None = None,
     module_id: str | None = None,
@@ -753,9 +754,10 @@ def layout_list(use_case: str | None = None) -> list[sqlite3.Row]:
 
 def layout_get(layout_id: str) -> sqlite3.Row | None:
     with _conn() as c:
-        return c.execute(
+        row = c.execute(
             f"SELECT {_LAYOUT_COLS} FROM layout_library WHERE id = ?", (layout_id,)
         ).fetchone()
+        return cast("sqlite3.Row | None", row)
 
 
 def layout_delete(layout_id: str) -> bool:

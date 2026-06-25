@@ -23,7 +23,7 @@ def preprocess(data: bytes, mime: str) -> tuple[bytes, str, dict]:
     try:  # Pillow is optional — guard so default installs/tests don't require it.
         import io
 
-        from PIL import Image  # type: ignore
+        from PIL import Image
 
         img = Image.open(io.BytesIO(data))
         img.load()
